@@ -32,6 +32,17 @@ Apri `https://<server>/` (o `https://localhost:<HTTPS_PORT>/`) ed entra con l'ut
 Al primo avvio il proxy crea un certificato autofirmato in `certs/`. In sede va sostituito con
 uno rilasciato dalla CA interna: si mettono `certs/crm.crt` e `certs/crm.key` e si riavvia il proxy.
 
+### Utenti di esempio per le prove
+
+Su un'installazione di prova si possono creare un Responsabile e tre Operatori locali:
+
+```sh
+docker compose exec backend python -m app.semina
+```
+
+Nomi utente e password sono in `backend/app/semina.py`. Sono pubblici, quindi il comando non va
+mai lanciato sul server in sede (con l'Active Directory configurato si rifiuta di partire).
+
 ### Portare il CRM sul server in sede (senza internet)
 
 ```sh
