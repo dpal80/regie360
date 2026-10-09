@@ -1,5 +1,7 @@
 # Regie360
 
+<img src="docs/logo/logo.svg" alt="Regie360" width="360">
+
 Regie360 è il CRM web per le chiamate di ricontatto dei clienti dell'officina e concessionaria REGIE AUTO.
 Gira tutto in locale con Docker Compose: nessun servizio cloud esterno.
 
