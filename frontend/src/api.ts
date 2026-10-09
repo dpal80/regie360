@@ -12,6 +12,7 @@ export class ErroreApi extends Error {
 
 function messaggioDa(detail: unknown, stato: number): string {
   if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "messaggio" in detail) return String((detail as { messaggio: unknown }).messaggio);
   if (detail && typeof detail === "object" && "errori" in detail) {
     return (detail as { errori: string[] }).errori.join("\n");
   }
@@ -92,7 +93,9 @@ export type Utente = {
   ruolo: Ruolo;
   origine: "ad" | "locale";
   interno: string | null;
+  email: string | null;
   deve_cambiare_password: boolean;
+  totp_attivo: boolean;
 };
 
 export type Pagina<T> = { totale: number; pagina: number; per_pagina: number; elementi: T[] };

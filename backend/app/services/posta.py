@@ -111,3 +111,34 @@ def invia_mail(cfg: ConfigPosta, destinatari: list[str], oggetto: str, testo: st
         intestazioni={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
     log.info("E-mail inviata a %d destinatari", len(destinatari))
+
+
+def invia_credenziali(cfg: ConfigPosta, email: str, nome: str, username: str, password: str) -> None:
+    invia_mail(cfg, [email], "Regie360: le tue credenziali", (
+        f"Ciao {nome},\n\n"
+        "è stato creato il tuo accesso a Regie360, il CRM di REGIE AUTO.\n\n"
+        f"Nome utente: {username}\n"
+        f"Password provvisoria: {password}\n\n"
+        "Al primo accesso ti verrà chiesto di scegliere una nuova password. "
+        "Ti consigliamo anche di attivare la verifica in due passaggi dalla pagina «Il mio account»."
+    ))
+
+
+def invia_nuova_password(cfg: ConfigPosta, email: str, nome: str, username: str, password: str) -> None:
+    invia_mail(cfg, [email], "Regie360: nuova password provvisoria", (
+        f"Ciao {nome},\n\n"
+        "la tua password di Regie360 è stata reimpostata da un amministratore.\n\n"
+        f"Nome utente: {username}\n"
+        f"Password provvisoria: {password}\n\n"
+        "Al prossimo accesso ti verrà chiesto di sceglierne una nuova."
+    ))
+
+
+def invia_codice_reset(cfg: ConfigPosta, email: str, nome: str, codice: str, minuti: int) -> None:
+    invia_mail(cfg, [email], "Regie360: codice per reimpostare la password", (
+        f"Ciao {nome},\n\n"
+        "hai chiesto di reimpostare la password di Regie360.\n\n"
+        f"Codice: {codice}\n\n"
+        f"Vale {minuti} minuti e si usa una volta sola: inseriscilo nella pagina di accesso insieme alla nuova password.\n"
+        "Se non sei stato tu, ignora questa e-mail: la password resta quella di prima."
+    ))

@@ -10,6 +10,7 @@ import Importa from "./pages/Importa";
 import Utenti from "./pages/Utenti";
 import Registro from "./pages/Registro";
 import CambioPassword from "./pages/CambioPassword";
+import Account from "./pages/Account";
 import Chiamate from "./pages/Chiamate";
 import Contatto from "./pages/Contatto";
 import Opportunita from "./pages/Opportunita";
@@ -66,14 +67,15 @@ export default function App() {
         <div className="chi">
           <div>{utente.nome}</div>
           <small>{RUOLI[utente.ruolo]}</small>
-          {utente.origine === "locale" && <NavLink to="/password" className="link-chiaro">Cambia password</NavLink>}
+          <NavLink to="/account" className="link-chiaro">Il mio account</NavLink>
           <button className="link" onClick={logout}>Esci</button>
         </div>
       </aside>
       <main className="contenuto">
         <Routes>
           <Route path="/" element={<Home />} />
-          {utente.origine === "locale" && <Route path="/password" element={<CambioPassword />} />}
+          <Route path="/account" element={<Account />} />
+          <Route path="/password" element={<Navigate to="/account" replace />} />
           <Route path="/chiamate" element={<Chiamate />} />
           <Route path="/contatti/:id" element={<Contatto />} />
           <Route path="/opportunita" element={<Opportunita />} />

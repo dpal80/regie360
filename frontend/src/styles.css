@@ -168,3 +168,11 @@ button.pericolo:hover:not(:disabled) { border-color: var(--rosso); }
 a.scheda-voce { padding: 0.45rem 0.9rem; border: 1px solid var(--bordo); border-radius: 6px; background: var(--superficie); color: var(--testo); }
 a.scheda-voce:hover { border-color: var(--accento); text-decoration: none; }
 a.scheda-voce.active { background: var(--accento); border-color: var(--accento); color: #fff; }
+
+/* Account, 2FA, accesso */
+.qr { width: 13rem; background: #fff; padding: 0.25rem; border: 1px solid var(--bordo); border-radius: 6px; }
+.qr svg { width: 100%; height: auto; display: block; }
+.consiglio { background: var(--arancio-chiaro); color: var(--arancio); padding: 0.6rem 0.8rem; border-radius: 6px; }
+.etichetta-2fa { background: #ecfdf3; color: #067647; border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.8rem; font-weight: 600; }
+button.link.scuro { color: var(--accento); text-align: center; }
+.scheda.password { margin-bottom: 1rem; }

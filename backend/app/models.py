@@ -49,6 +49,17 @@ class Utente(Base):
     # Utenti locali: al primo accesso (o dopo un reset) devono scegliere una nuova password.
     deve_cambiare_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     interno: Mapped[str | None] = mapped_column(String(20))
+    # A questo indirizzo arrivano le credenziali provvisorie e i codici per reimpostare la password.
+    email: Mapped[str | None] = mapped_column(String(254))
+    # Verifica in due passaggi (facoltativa): segreto TOTP cifrato e ultimo codice usato.
+    totp_segreto_cifrato: Mapped[str | None] = mapped_column(Text)
+    totp_attivo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    totp_ultimo_passo: Mapped[int | None] = mapped_column(Integer)
+    # Codice usa e getta per reimpostare la password dimenticata (solo utenti locali).
+    reset_codice_hash: Mapped[str | None] = mapped_column(String(255))
+    reset_scadenza: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reset_tentativi: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    reset_richiesto_il: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Token di Phone Island e dati SIP dell'utente, cifrati (vedi services/telefonia.py).
     telefono_cifrato: Mapped[str | None] = mapped_column(Text)
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)

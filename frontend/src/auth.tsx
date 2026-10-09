@@ -4,7 +4,7 @@ import { api, post, type Utente } from "./api";
 type Auth = {
   utente: Utente | null;
   caricamento: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, codice?: string) => Promise<void>;
   logout: () => Promise<void>;
   ricarica: () => Promise<void>;
 };
@@ -25,8 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("sessione-scaduta", scaduta);
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    setUtente(await post<Utente>("/auth/login", { username, password }));
+  const login = useCallback(async (username: string, password: string, codice?: string) => {
+    setUtente(await post<Utente>("/auth/login", { username, password, codice: codice || null }));
   }, []);
 
   const logout = useCallback(async () => {

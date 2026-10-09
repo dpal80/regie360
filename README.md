@@ -155,7 +155,27 @@ consenso dell'amministratore; conviene limitarla alla sola casella mittente con 
 alle applicazioni di Exchange Online. Per spedire, il server del CRM deve raggiungere
 `login.microsoftonline.com` e `graph.microsoft.com`: è l'unico collegamento del CRM verso internet.
 
-Per ora c'è il collegamento e la prova di invio: quali e-mail spedire è ancora da decidere.
+Il CRM spedisce tre tipi di e-mail, tutte agli utenti locali:
+
+- le **credenziali provvisorie** di un nuovo utente, se nella pagina Utenti si spunta «Invia le credenziali
+  per e-mail»: la password la genera il CRM e non passa da nessun altro;
+- la **nuova password provvisoria** quando un super-admin la reimposta a un utente che ha un'e-mail;
+- il **codice per reimpostare la password** dimenticata, chiesto dall'utente nella pagina di accesso: 8 cifre,
+  vale 15 minuti e una volta sola, e dopo 5 errori va richiesto di nuovo.
+
+L'e-mail di un utente la imposta chi lo crea, la può cambiare un super-admin oppure l'utente stesso
+(confermando la password) da «Il mio account».
+
+## Verifica in due passaggi
+
+Ogni utente, locale o di dominio, può attivarla da **Il mio account**: inquadra il codice QR con un'app di
+autenticazione (Microsoft Authenticator, Google Authenticator...) e da quel momento per entrare serve anche
+il codice di 6 cifre. È facoltativa ma consigliata, e la home lo ricorda a chi non l'ha attivata.
+
+- I codici sbagliati contano come le password sbagliate: dopo 5 l'utente resta bloccato 15 minuti.
+- Reimpostare la password non la disattiva.
+- A chi perde il telefono la azzera un super-admin dalla pagina Utenti. Per l'amministratore globale, che
+  nessuno può modificare, c'è il comando `docker compose exec backend python -m app.azzera_2fa admin`.
 
 ## Sviluppo
 

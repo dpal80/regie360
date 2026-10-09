@@ -1,6 +1,8 @@
 """Login (Active Directory o admin locale), sessione in cookie e controllo dei ruoli."""
 
 import logging
+import re
+import secrets
 import ssl
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -20,6 +22,7 @@ log = logging.getLogger(__name__)
 
 COOKIE_NAME = "crm_sessione"
 PERCORSI_CAMBIO_PASSWORD = {"/api/auth/me", "/api/auth/password", "/api/auth/logout"}
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PASSWORD_MIN = 10
 IMPOSTAZIONE_AD = "active_directory"
 _hasher = PasswordHasher()
@@ -236,16 +239,30 @@ def autentica(db: Session, username: str, password: str) -> Utente | None:
         ok = False
 
     if ok:
-        utente.tentativi_falliti = 0
+        # Con la verifica in due passaggi il conteggio si azzera solo dopo il codice giusto (vedi login).
+        if not utente.totp_attivo:
+            utente.tentativi_falliti = 0
         utente.bloccato_fino = None
         utente.ultimo_accesso = adesso
     else:
-        utente.tentativi_falliti += 1
-        if utente.tentativi_falliti >= s.login_max_tentativi:
-            utente.bloccato_fino = adesso + timedelta(minutes=s.login_blocco_minuti)
-            utente.tentativi_falliti = 0
+        conta_tentativo_fallito(utente)
     db.commit()
     return utente if ok else None
+
+
+def conta_tentativo_fallito(utente: Utente) -> None:
+    """Dopo troppi tentativi sbagliati (password o codice) l'utente resta bloccato per qualche minuto."""
+    s = get_settings()
+    utente.tentativi_falliti += 1
+    if utente.tentativi_falliti >= s.login_max_tentativi:
+        utente.bloccato_fino = datetime.now(UTC) + timedelta(minutes=s.login_blocco_minuti)
+        utente.tentativi_falliti = 0
+
+
+def genera_password() -> str:
+    """Password provvisoria leggibile, senza caratteri che si confondono (0/O, 1/l)."""
+    alfabeto = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(alfabeto) for _ in range(12))
 
 
 def crea_token(utente: Utente) -> str:

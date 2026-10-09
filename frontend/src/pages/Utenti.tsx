@@ -9,7 +9,9 @@ type Utente = {
   ruolo: Ruolo;
   origine: "ad" | "locale";
   interno: string | null;
+  email: string | null;
   attivo: boolean;
+  totp_attivo: boolean;
   deve_cambiare_password: boolean;
   admin_emergenza: boolean;
   bloccato_fino: string | null;
@@ -19,7 +21,7 @@ type Utente = {
 type UtenteAD = { username: string; nome: string; email: string | null; reparto: string | null; gia_nel_crm: boolean };
 type Sfoglia = { base_dn: string; utenti: UtenteAD[]; troppi: boolean };
 
-const VUOTO = { username: "", nome: "", ruolo: "operatore", interno: "", origine: "ad", password: "" };
+const VUOTO = { username: "", nome: "", ruolo: "operatore", interno: "", email: "", origine: "ad", password: "", invia: false };
 
 // Password provvisoria leggibile (senza caratteri che si confondono come 0/O o 1/l).
 function generaPassword(): string {
@@ -35,6 +37,8 @@ export default function Utenti() {
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
   const superadmin = eSuperadmin(io);
+  // Se la posta è configurata, le credenziali possono arrivare all'utente per e-mail.
+  const [postaAttiva, setPostaAttiva] = useState(false);
   // Solo un super-admin nomina altri super-admin.
   const opzioniRuolo = (
     <>
@@ -74,6 +78,7 @@ export default function Utenti() {
   const carica = () => api<Utente[]>("/utenti").then(setUtenti).catch((e) => setErrore(e.message));
   useEffect(() => {
     carica();
+    api<{ attivo: boolean }>("/impostazioni/microsoft365/stato").then((s) => setPostaAttiva(s.attivo)).catch(() => undefined);
   }, []);
 
   async function azione(f: () => Promise<unknown>) {
@@ -91,9 +96,16 @@ export default function Utenti() {
     e.preventDefault();
     azione(async () => {
       const locale = nuovo.origine === "locale";
-      await post("/utenti", { ...nuovo, interno: nuovo.interno || null, password: locale ? nuovo.password : null });
+      const perEmail = locale && postaAttiva && nuovo.invia && nuovo.email !== "";
+      await post("/utenti", {
+        username: nuovo.username, nome: nuovo.nome, ruolo: nuovo.ruolo, origine: nuovo.origine,
+        interno: nuovo.interno || null, email: nuovo.email || null,
+        password: locale && !perEmail ? nuovo.password : null, invia_credenziali: perEmail,
+      });
       setNuovo(VUOTO);
-      if (locale) {
+      if (perEmail) {
+        setAvviso(`Utente ${nuovo.username} creato: le credenziali sono partite per e-mail a ${nuovo.email}.`);
+      } else if (locale) {
         setAvviso(`Utente ${nuovo.username} creato. Comunicagli la password provvisoria «${nuovo.password}»: la cambierà al primo accesso.`);
       }
     });
@@ -133,7 +145,14 @@ export default function Utenti() {
           </select>
         </label>
         <label>Interno telefonico<input value={nuovo.interno} onChange={(e) => setNuovo({ ...nuovo, interno: e.target.value })} /></label>
-        {nuovo.origine === "locale" && (
+        <label>E-mail<input type="email" value={nuovo.email} onChange={(e) => setNuovo({ ...nuovo, email: e.target.value })} /></label>
+        {nuovo.origine === "locale" && postaAttiva && (
+          <label className="spunta">
+            <input type="checkbox" checked={nuovo.invia} disabled={!nuovo.email} onChange={(e) => setNuovo({ ...nuovo, invia: e.target.checked })} />
+            Invia le credenziali per e-mail
+          </label>
+        )}
+        {nuovo.origine === "locale" && !(postaAttiva && nuovo.invia && nuovo.email) && (
           <label>
             Password provvisoria
             <input required minLength={10} value={nuovo.password} onChange={(e) => setNuovo({ ...nuovo, password: e.target.value })} />
@@ -197,7 +216,7 @@ export default function Utenti() {
       </section>
       <table>
         <thead>
-          <tr><th>Utente</th><th>Accesso</th><th>Nome</th><th>Ruolo</th><th>Interno</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr>
+          <tr><th>Utente</th><th>Accesso</th><th>Nome</th><th>Ruolo</th><th>Interno</th><th>E-mail</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => {
@@ -231,8 +250,18 @@ export default function Utenti() {
                     onBlur={(e) => e.target.value !== (u.interno ?? "") && azione(() => patch(`/utenti/${u.id}`, { interno: e.target.value }))}
                   />
                 </td>
+                <td>
+                  {superadmin && !globale ? (
+                    <input
+                      type="email"
+                      defaultValue={u.email ?? ""}
+                      onBlur={(e) => e.target.value !== (u.email ?? "") && azione(() => patch(`/utenti/${u.id}`, { email: e.target.value }))}
+                    />
+                  ) : u.email}
+                </td>
                 <td>{formatoDataOra(u.ultimo_accesso)}</td>
                 <td>
+                  {u.totp_attivo && <span className="etichetta-2fa" title="Verifica in due passaggi attiva">2FA</span>}{" "}
                   {!u.attivo ? "Disattivato" : bloccato(u) ? "Bloccato" : u.deve_cambiare_password ? "Primo accesso" : "Attivo"}
                 </td>
                 <td>
@@ -241,6 +270,14 @@ export default function Utenti() {
                   {locale && !ioStesso && superadmin && !globale && (
                     <button
                       onClick={() => {
+                        if (postaAttiva && u.email) {
+                          if (!confirm(`Mandare a ${u.email} una nuova password provvisoria per ${u.username}?`)) return;
+                          azione(async () => {
+                            await post(`/utenti/${u.id}/password`, { invia: true });
+                            setAvviso(`Nuova password provvisoria spedita a ${u.email}. ${u.username} la cambierà al prossimo accesso.`);
+                          });
+                          return;
+                        }
                         const password = generaPassword();
                         azione(async () => {
                           await post(`/utenti/${u.id}/password`, { password });
@@ -249,6 +286,14 @@ export default function Utenti() {
                       }}
                     >
                       Nuova password
+                    </button>
+                  )}
+                  {u.totp_attivo && superadmin && !globale && !ioStesso && (
+                    <button
+                      title="Per chi ha perso il telefono: toglie la verifica in due passaggi"
+                      onClick={() => confirm(`Togliere la verifica in due passaggi a ${u.username}?`) && azione(() => post(`/utenti/${u.id}/2fa/azzera`))}
+                    >
+                      Azzera 2FA
                     </button>
                   )}
                   {!ioStesso && !adminEmergenza && !protetto && (

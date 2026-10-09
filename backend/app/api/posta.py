@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.audit import registra
 from app.db import get_db
 from app.models import Impostazione, Utente
-from app.security import solo_superadmin
+from app.security import solo_responsabile, solo_superadmin
 from app.segreti import cifra
 from app.services.posta import (
     IMPOSTAZIONE_M365,
@@ -49,6 +49,12 @@ def _out(db: Session) -> PostaOut:
     cfg = config_posta(db)
     return PostaOut(attivo=cfg.attivo, tenant_id=cfg.tenant_id, client_id=cfg.client_id,
                     mittente=cfg.mittente, segreto_presente=bool(cfg.segreto))
+
+
+@router.get("/stato")
+def stato(db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)):
+    """Se il CRM può spedire e-mail: serve alla pagina Utenti per proporre l'invio delle credenziali."""
+    return {"attivo": config_posta(db).configurato}
 
 
 @router.get("", response_model=PostaOut)

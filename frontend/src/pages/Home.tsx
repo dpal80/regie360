@@ -17,6 +17,12 @@ export default function Home() {
   return (
     <>
       <h1>Ciao {utente?.nome}</h1>
+      {utente && !utente.totp_attivo && (
+        <p className="consiglio">
+          Proteggi il tuo accesso: attiva la verifica in due passaggi da <Link to="/account">Il mio account</Link>. È
+          consigliata e richiede un minuto.
+        </p>
+      )}
       {responsabile ? (
         <>
           <div className="tessere">
