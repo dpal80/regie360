@@ -26,7 +26,7 @@ export default function Login() {
     <div className="login">
       <form onSubmit={entra} className="scheda">
         <h1>
-          Regie<strong>360</strong>
+          <img src="/logo.svg" alt="Regie360" className="logo-login" />
         </h1>
         <p className="tenue">Il CRM di REGIE AUTO. Accedi con le credenziali di Windows o con quelle che ti ha dato il responsabile</p>
         <label>

@@ -48,7 +48,9 @@ label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;
   width: 220px; flex-shrink: 0; background: var(--menu); color: #fff;
   display: flex; flex-direction: column; padding: 1.25rem 0;
 }
-.logo { padding: 0 1.25rem 1.25rem; font-size: 1.05rem; letter-spacing: 0.02em; }
+.logo { padding: 0 1.25rem 1.25rem; }
+.logo img { width: 100%; max-width: 180px; display: block; }
+.logo-login { width: 100%; display: block; }
 .menu nav { display: flex; flex-direction: column; flex: 1; }
 .menu nav a { color: #c9d6ef; padding: 0.6rem 1.25rem; }
 .menu nav a:hover { background: rgba(255, 255, 255, 0.06); text-decoration: none; }
@@ -116,6 +118,7 @@ a.tessera:hover { border-color: var(--accento); text-decoration: none; }
 @media (max-width: 760px) {
   .layout { flex-direction: column; }
   .menu { width: 100%; padding: 0.75rem 0; }
+  .logo img { max-width: 140px; }
   .menu nav { flex-direction: row; overflow-x: auto; }
   .chi { flex-direction: row; gap: 0.75rem; align-items: center; border: none; padding-top: 0.5rem; }
   .contenuto { padding: 1rem; }

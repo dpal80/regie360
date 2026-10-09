@@ -29,7 +29,7 @@ export default function App() {
     <div className="layout">
       <aside className="menu">
         <div className="logo">
-          Regie<strong>360</strong>
+          <img src="/logo-bianco.svg" alt="Regie360" />
         </div>
         <nav>
           <NavLink to="/" end>Home</NavLink>
