@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, cancella, post, put } from "../api";
 
-type Config = { server: string; porta: number; ssl: boolean; dominio: string; certificato_ca: string; origine: string };
+type Config = { server: string; porta: number; ssl: boolean; dominio: string; certificato_ca: string; base_dn: string; origine: string };
 type Prova = { ok: boolean; messaggio: string };
 
-const VUOTA: Config = { server: "", porta: 636, ssl: true, dominio: "", certificato_ca: "", origine: "nessuna" };
+const VUOTA: Config = { server: "", porta: 636, ssl: true, dominio: "", certificato_ca: "", base_dn: "", origine: "nessuna" };
 
 const ORIGINI: Record<string, string> = {
   pagina: "Impostazioni salvate da questa pagina.",
@@ -26,7 +26,7 @@ export default function ActiveDirectory() {
 
   const dati = () => ({
     server: config.server, porta: Number(config.porta), ssl: config.ssl,
-    dominio: config.dominio, certificato_ca: config.certificato_ca,
+    dominio: config.dominio, certificato_ca: config.certificato_ca, base_dn: config.base_dn,
   });
 
   async function esegui(f: () => Promise<void>) {
@@ -102,6 +102,10 @@ export default function ActiveDirectory() {
         {!config.ssl && (
           <div className="errore larga">Senza collegamento cifrato le password viaggiano in chiaro sulla rete: usalo solo per una prova.</div>
         )}
+        <label className="larga">
+          Base DN: da dove sfogliare gli utenti nella pagina Utenti (vuota = tutto il dominio)
+          <input value={config.base_dn} onChange={(e) => setConfig({ ...config, base_dn: e.target.value })} placeholder="OU=Operatori CRM,DC=regieauto,DC=local" />
+        </label>
         <label className="larga">
           Certificato della CA interna (formato PEM, facoltativo)
           <textarea

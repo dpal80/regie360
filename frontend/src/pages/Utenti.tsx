@@ -16,6 +16,9 @@ type Utente = {
   ultimo_accesso: string | null;
 };
 
+type UtenteAD = { username: string; nome: string; email: string | null; reparto: string | null; gia_nel_crm: boolean };
+type Sfoglia = { base_dn: string; utenti: UtenteAD[]; troppi: boolean };
+
 const VUOTO = { username: "", nome: "", ruolo: "operatore", interno: "", origine: "ad", password: "" };
 
 // Password provvisoria leggibile (senza caratteri che si confondono come 0/O o 1/l).
@@ -31,6 +34,33 @@ export default function Utenti() {
   const [nuovo, setNuovo] = useState(VUOTO);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
+  // Le credenziali di dominio per sfogliare restano solo in questa pagina: il CRM non le salva.
+  const [sfoglia, setSfoglia] = useState({ aperto: false, username: "", password: "", q: "" });
+  const [trovati, setTrovati] = useState<Sfoglia | null>(null);
+  const [ruoli, setRuoli] = useState<Record<string, string>>({});
+  const [cercando, setCercando] = useState(false);
+
+  async function cercaInAD(e: FormEvent) {
+    e.preventDefault();
+    setErrore("");
+    setCercando(true);
+    try {
+      setTrovati(await post<Sfoglia>("/impostazioni/ad/utenti", { username: sfoglia.username, password: sfoglia.password, q: sfoglia.q }));
+    } catch (err) {
+      setTrovati(null);
+      setErrore((err as Error).message);
+    } finally {
+      setCercando(false);
+    }
+  }
+
+  function aggiungiDaAD(u: UtenteAD) {
+    azione(async () => {
+      await post("/utenti", { username: u.username, nome: u.nome, ruolo: ruoli[u.username] ?? "operatore", origine: "ad" });
+      setTrovati((t) => t && { ...t, utenti: t.utenti.map((x) => (x.username === u.username ? { ...x, gia_nel_crm: true } : x)) });
+      setAvviso(`${u.nome} ora può entrare nel CRM con le credenziali di Windows.`);
+    });
+  }
 
   const carica = () => api<Utente[]>("/utenti").then(setUtenti).catch((e) => setErrore(e.message));
   useEffect(() => {
@@ -100,6 +130,61 @@ export default function Utenti() {
         )}
         <div className="azioni"><button className="primario" type="submit">Aggiungi utente</button></div>
       </form>
+      <section className="scheda">
+        <div className="testata">
+          <h3>Scegli dall'Active Directory</h3>
+          <button onClick={() => setSfoglia({ ...sfoglia, aperto: !sfoglia.aperto })}>{sfoglia.aperto ? "Chiudi" : "Sfoglia utenti di dominio"}</button>
+        </div>
+        {sfoglia.aperto && (
+          <>
+            <p className="tenue">
+              Per leggere l'elenco il CRM entra nel dominio con le tue credenziali di Windows, che non vengono salvate.
+              Si vedono gli utenti attivi sotto la Base DN impostata nella pagina Active Directory.
+            </p>
+            <form className="filtri" onSubmit={cercaInAD}>
+              <label>Il tuo utente di dominio<input required value={sfoglia.username} onChange={(e) => setSfoglia({ ...sfoglia, username: e.target.value })} autoComplete="off" /></label>
+              <label>Password<input required type="password" value={sfoglia.password} onChange={(e) => setSfoglia({ ...sfoglia, password: e.target.value })} autoComplete="off" /></label>
+              <label>Cerca (facoltativo)<input value={sfoglia.q} onChange={(e) => setSfoglia({ ...sfoglia, q: e.target.value })} placeholder="Nome, utente o e-mail" /></label>
+              <div className="azioni"><button className="primario" type="submit" disabled={cercando}>{cercando ? "Cerco…" : "Mostra utenti"}</button></div>
+            </form>
+            {trovati && (
+              <>
+                <p className="tenue">
+                  {trovati.utenti.length} utenti in {trovati.base_dn}
+                  {trovati.troppi ? ": l'elenco è stato tagliato, restringi la ricerca o la Base DN." : "."}
+                </p>
+                <table>
+                  <thead><tr><th>Nome</th><th>Utente</th><th>E-mail</th><th>Reparto</th><th>Ruolo</th><th></th></tr></thead>
+                  <tbody>
+                    {trovati.utenti.map((u) => (
+                      <tr key={u.username} className={u.gia_nel_crm ? "spento" : ""}>
+                        <td>{u.nome}</td>
+                        <td>{u.username}</td>
+                        <td>{u.email}</td>
+                        <td>{u.reparto}</td>
+                        <td>
+                          {!u.gia_nel_crm && (
+                            <select value={ruoli[u.username] ?? "operatore"} onChange={(e) => setRuoli({ ...ruoli, [u.username]: e.target.value })}>
+                              <option value="operatore">Operatore</option>
+                              <option value="responsabile">Responsabile</option>
+                            </select>
+                          )}
+                        </td>
+                        <td>
+                          <div className="azioni-riga">
+                            {u.gia_nel_crm ? "Già nel CRM" : <button onClick={() => aggiungiDaAD(u)}>Aggiungi</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {trovati.utenti.length === 0 && <tr><td colSpan={6} className="vuoto">Nessun utente trovato</td></tr>}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        )}
+      </section>
       <table>
         <thead>
           <tr><th>Utente</th><th>Accesso</th><th>Nome</th><th>Ruolo</th><th>Interno</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr>

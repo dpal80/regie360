@@ -62,7 +62,10 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
 - **Utenti di dominio**: entrano con nome utente e password di Windows. Il backend verifica la password
   sull'Active Directory via LDAPS. Il collegamento si imposta dalla pagina **Active Directory**
   (server, dominio, porta, certificato della CA interna), dove si può anche provare con un utente di
-  dominio prima di salvare. Le variabili `AD_SERVER`, `AD_DOMAIN` e `AD_CA_FILE` del file `.env` restano
+  dominio prima di salvare. Con la **Base DN** si sceglie da quale ramo del dominio sfogliare gli utenti:
+  nella pagina **Utenti**, «Sfoglia utenti di dominio» mostra quelli attivi sotto la Base DN e permette
+  di aggiungerli al CRM scegliendo il ruolo. Per leggere l'elenco il CRM usa le credenziali di dominio di
+  chi sfoglia, senza salvarle: non serve un account di servizio. Le variabili `AD_SERVER`, `AD_DOMAIN` e `AD_CA_FILE` del file `.env` restano
   valide finché dalla pagina non si salva nulla.
   L'AD controlla solo la password: chi può entrare e con quale ruolo lo decide il Responsabile nella
   pagina **Utenti**. Un utente AD non aggiunto al CRM non entra.

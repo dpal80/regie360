@@ -191,3 +191,33 @@ def test_opportunita(admin, campagna):
         r = op1.patch(f"/api/opportunita/{o['id']}", json={"fase_id": fasi["Chiusa vinta"]})
         assert r.json()["motivo_perdita"] is None
     assert admin.get("/api/opportunita").json()["totale"] == 1
+
+
+def test_sfoglia_utenti_ad(admin, monkeypatch):
+    crea_operatore("mario.rossi")
+    admin.put("/api/impostazioni/ad", json={"server": "dc1", "dominio": "regie.local", "base_dn": "OU=CRM,DC=regie,DC=local"})
+    assert admin.put("/api/impostazioni/ad", json={"server": "dc1", "dominio": "regie.local", "base_dn": "CRM"}).status_code == 422
+    visti = {}
+
+    def finta(cfg, username, password, q=""):
+        visti.update(base=cfg.base_ricerca, username=username, q=q)
+        if password != "giusta":
+            return None
+        return [{"username": "mario.rossi", "nome": "Mario Rossi", "email": None, "reparto": "Officina"},
+                {"username": "anna.blu", "nome": "Anna Blu", "email": "anna@regie.local", "reparto": None}]
+
+    monkeypatch.setattr("app.api.impostazioni.cerca_utenti_ad", finta)
+    r = admin.post("/api/impostazioni/ad/utenti", json={"username": "REGIE\\Admin", "password": "giusta", "q": "ro"})
+    assert r.status_code == 200, r.text
+    assert visti == {"base": "OU=CRM,DC=regie,DC=local", "username": "admin", "q": "ro"}
+    assert {u["username"]: u["gia_nel_crm"] for u in r.json()["utenti"]} == {"mario.rossi": True, "anna.blu": False}
+    assert admin.post("/api/impostazioni/ad/utenti", json={"username": "admin", "password": "no"}).status_code == 400
+    with entra("mario.rossi") as op:
+        assert op.post("/api/impostazioni/ad/utenti", json={"username": "x", "password": "giusta"}).status_code == 403
+
+
+def test_base_dn_predefinita_e_filtro():
+    from ldap3.utils.conv import escape_filter_chars
+
+    assert security.ConfigAD(dominio="regieauto.local").base_ricerca == "DC=regieauto,DC=local"
+    assert "*" not in escape_filter_chars("a*)(uid=*")

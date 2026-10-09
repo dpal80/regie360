@@ -60,11 +60,17 @@ class ConfigAD:
     dominio: str = ""  # es. regieauto.local, usato come utente@dominio
     certificato_ca: str = ""  # certificato della CA interna in formato PEM
     file_ca: str = ""  # in alternativa, percorso del certificato sul server (AD_CA_FILE)
+    base_dn: str = ""  # da dove si sfogliano gli utenti; vuoto = tutto il dominio
     origine: str = "nessuna"  # pagina / file / nessuna
 
     @property
     def configurato(self) -> bool:
         return bool(self.server and self.dominio)
+
+    @property
+    def base_ricerca(self) -> str:
+        """La Base DN scelta, altrimenti la radice del dominio (regieauto.local -> DC=regieauto,DC=local)."""
+        return self.base_dn or ",".join(f"DC={parte}" for parte in self.dominio.split(".") if parte)
 
 
 def config_ad(db: Session | None = None) -> ConfigAD:
@@ -81,6 +87,7 @@ def config_ad(db: Session | None = None) -> ConfigAD:
             ssl=bool(v.get("ssl", True)),
             dominio=v.get("dominio", ""),
             certificato_ca=v.get("certificato_ca", ""),
+            base_dn=v.get("base_dn", ""),
             origine="pagina",
         )
     s = get_settings()
@@ -94,18 +101,10 @@ def config_ad(db: Session | None = None) -> ConfigAD:
     )
 
 
-def verifica_ad(username: str, password: str, cfg: ConfigAD | None = None) -> bool:
-    """Prova il bind sull'Active Directory con le credenziali dell'utente."""
+def _connessione_ad(cfg: ConfigAD, username: str, password: str):
     from ldap3 import SIMPLE, Connection, Server, Tls
 
-    cfg = cfg or config_ad()
     timeout = get_settings().ad_timeout
-    if not cfg.configurato:
-        raise ADNonRaggiungibile("Active Directory non configurato")
-    # Un bind con password vuota su AD riesce come "anonimo": va sempre rifiutato.
-    if not password:
-        return False
-
     tls = None
     if cfg.ssl:
         tls = Tls(
@@ -113,28 +112,102 @@ def verifica_ad(username: str, password: str, cfg: ConfigAD | None = None) -> bo
             ca_certs_file=cfg.file_ca or None,
             ca_certs_data=cfg.certificato_ca or None,
         )
+    server = Server(cfg.server, port=cfg.porta, use_ssl=cfg.ssl, tls=tls, connect_timeout=timeout)
+    return Connection(
+        server,
+        user=f"{username}@{cfg.dominio}",
+        password=password,
+        authentication=SIMPLE,
+        receive_timeout=timeout,
+        raise_exceptions=False,
+    )
+
+
+def _chiudi(conn) -> None:
+    try:
+        if conn is not None:
+            conn.unbind()
+    except Exception:
+        pass
+
+
+def verifica_ad(username: str, password: str, cfg: ConfigAD | None = None) -> bool:
+    """Prova il bind sull'Active Directory con le credenziali dell'utente."""
+    cfg = cfg or config_ad()
+    if not cfg.configurato:
+        raise ADNonRaggiungibile("Active Directory non configurato")
+    # Un bind con password vuota su AD riesce come "anonimo": va sempre rifiutato.
+    if not password:
+        return False
+
     conn = None
     try:
-        server = Server(cfg.server, port=cfg.porta, use_ssl=cfg.ssl, tls=tls, connect_timeout=timeout)
-        conn = Connection(
-            server,
-            user=f"{username}@{cfg.dominio}",
-            password=password,
-            authentication=SIMPLE,
-            receive_timeout=timeout,
-            raise_exceptions=False,
-        )
+        conn = _connessione_ad(cfg, username, password)
         ok = conn.bind()
     except Exception as exc:  # errori di rete, TLS, timeout, certificato non valido
         log.warning("AD non raggiungibile: %s", exc)
         raise ADNonRaggiungibile(str(exc)) from exc
     finally:
-        try:
-            if conn is not None:
-                conn.unbind()
-        except Exception:
-            pass
+        _chiudi(conn)
     return bool(ok)
+
+
+# Persone con l'account attivo (il bit 2 di userAccountControl segna gli account disabilitati).
+FILTRO_UTENTI_AD = "(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)){cerca})"
+MAX_UTENTI_AD = 200
+
+
+def cerca_utenti_ad(cfg: ConfigAD, username: str, password: str, q: str = "") -> list[dict] | None:
+    """Elenca gli utenti sotto la Base DN, entrando con le credenziali di dominio di chi sfoglia.
+
+    Restituisce None se il server rifiuta nome utente o password.
+    """
+    from ldap3 import SUBTREE
+    from ldap3.utils.conv import escape_filter_chars
+
+    if not cfg.configurato:
+        raise ADNonRaggiungibile("Active Directory non configurato")
+    if not password:
+        return None
+    cerca = ""
+    if q.strip():
+        testo = escape_filter_chars(q.strip())
+        cerca = f"(|(sAMAccountName=*{testo}*)(displayName=*{testo}*)(mail=*{testo}*))"
+
+    conn = None
+    try:
+        conn = _connessione_ad(cfg, username, password)
+        if not conn.bind():
+            return None
+        conn.search(
+            cfg.base_ricerca,
+            FILTRO_UTENTI_AD.format(cerca=cerca),
+            search_scope=SUBTREE,
+            attributes=["sAMAccountName", "displayName", "mail", "department"],
+            size_limit=MAX_UTENTI_AD,
+        )
+        if conn.result["description"] not in ("success", "sizeLimitExceeded"):
+            # Tipicamente noSuchObject: la Base DN non esiste.
+            raise ADNonRaggiungibile(f"ricerca non riuscita ({conn.result['description']}): controlla la Base DN")
+        trovati = []
+        for voce in conn.entries:
+            account = str(voce.sAMAccountName.value or "")
+            if not account or account.endswith("$"):
+                continue
+            trovati.append({
+                "username": normalizza_username(account),
+                "nome": str(voce.displayName.value or account),
+                "email": str(voce.mail.value) if voce.mail.value else None,
+                "reparto": str(voce.department.value) if voce.department.value else None,
+            })
+    except ADNonRaggiungibile:
+        raise
+    except Exception as exc:
+        log.warning("Ricerca in AD non riuscita: %s", exc)
+        raise ADNonRaggiungibile(str(exc)) from exc
+    finally:
+        _chiudi(conn)
+    return sorted(trovati, key=lambda u: u["nome"].lower())
 
 
 def autentica(db: Session, username: str, password: str) -> Utente | None:
