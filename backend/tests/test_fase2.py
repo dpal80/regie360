@@ -221,3 +221,19 @@ def test_base_dn_predefinita_e_filtro():
 
     assert security.ConfigAD(dominio="regieauto.local").base_ricerca == "DC=regieauto,DC=local"
     assert "*" not in escape_filter_chars("a*)(uid=*")
+
+
+def test_team_si_elimina_solo_senza_campagne(admin, campagna):
+    usato = admin.get("/api/team").json()[0]
+    assert usato["campagne"] == 1 and len(usato["membri"]) == 2
+    assert admin.delete(f"/api/team/{usato['id']}").status_code == 409
+    op = usato["membri"][0]["id"]
+    libero = admin.post("/api/team", json={"nome": "Da togliere", "membri": [op]}).json()
+    assert libero["campagne"] == 0
+    assert admin.post("/api/team", json={"nome": "Da togliere"}).status_code == 409
+    with entra("op1") as operatore:
+        assert operatore.delete(f"/api/team/{libero['id']}").status_code == 403
+    assert admin.delete(f"/api/team/{libero['id']}").status_code == 204
+    assert [t["nome"] for t in admin.get("/api/team").json()] == ["Viterbo"]
+    # l'utente che era nel team eliminato resta al suo posto
+    assert admin.patch(f"/api/utenti/{op}", json={"interno": "300"}).status_code == 200

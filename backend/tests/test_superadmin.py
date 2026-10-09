@@ -58,3 +58,23 @@ def test_altri_utenti_possono_essere_superadmin(admin):
         # resta anche Responsabile a tutti gli effetti
         assert nuovo.get("/api/campagne").status_code == 200
         assert nuovo.post("/api/team", json={"nome": "T"}).status_code == 201
+
+
+def test_amministratore_globale_non_si_modifica(admin):
+    capo = utente_locale(admin, "capo", "superadmin")
+    io = admin.get("/api/auth/me").json()
+    assert io["ruolo"] == "admin_globale"
+    # il ruolo è solo suo: non si assegna ad altri
+    assert admin.patch(f"/api/utenti/{capo}", json={"ruolo": "admin_globale"}).status_code == 422
+    assert admin.post("/api/utenti", json={"username": "x", "nome": "X", "ruolo": "admin_globale"}).status_code == 422
+    with entra("capo") as altro:
+        # nemmeno un super-admin può toccarlo
+        for modifica in ({"nome": "Altro"}, {"ruolo": "operatore"}, {"attivo": False}, {"interno": "9"}):
+            assert altro.patch(f"/api/utenti/{io['id']}", json=modifica).status_code == 400
+        assert altro.post(f"/api/utenti/{io['id']}/password", json={"password": "nuova-provvisoria"}).status_code == 400
+    assert admin.patch(f"/api/utenti/{io['id']}", json={"nome": "Altro"}).status_code == 400
+    # resta super-admin e Responsabile a tutti gli effetti, e cambia da solo la propria password
+    assert admin.get("/api/impostazioni/ad").status_code == 200
+    assert admin.get("/api/campagne").status_code == 200
+    r = admin.post("/api/auth/password", json={"attuale": "password-admin-di-prova", "nuova": "nuova-password-admin"})
+    assert r.status_code == 204

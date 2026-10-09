@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, formatoDataOra, patch, post, type Ruolo } from "../api";
+import { api, eSuperadmin, formatoDataOra, patch, post, RUOLI, type Ruolo } from "../api";
 import { useAuth } from "../auth";
 
 type Utente = {
@@ -34,7 +34,7 @@ export default function Utenti() {
   const [nuovo, setNuovo] = useState(VUOTO);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
-  const superadmin = io?.ruolo === "superadmin";
+  const superadmin = eSuperadmin(io);
   // Solo un super-admin nomina altri super-admin.
   const opzioniRuolo = (
     <>
@@ -205,7 +205,9 @@ export default function Utenti() {
             const locale = u.origine === "locale";
             const adminEmergenza = u.admin_emergenza;
             // Un Responsabile non modifica l'utente di un super-admin.
-            const protetto = u.ruolo === "superadmin" && !superadmin;
+            // L'amministratore globale non lo modifica nessuno.
+            const globale = u.ruolo === "admin_globale";
+            const protetto = globale || (u.ruolo === "superadmin" && !superadmin);
             return (
               <tr key={u.id} className={u.attivo ? "" : "spento"}>
                 <td>{u.username}</td>
@@ -218,7 +220,7 @@ export default function Utenti() {
                     onChange={(e) => azione(() => patch(`/utenti/${u.id}`, { ruolo: e.target.value }))}
                   >
                     {opzioniRuolo}
-                    {protetto && <option value="superadmin">Super-admin</option>}
+                    {protetto && <option value={u.ruolo}>{RUOLI[u.ruolo]}</option>}
                   </select>
                 </td>
                 <td>
@@ -236,7 +238,7 @@ export default function Utenti() {
                 <td>
                   <div className="azioni-riga">
                   {bloccato(u) && !protetto && <button onClick={() => azione(() => post(`/utenti/${u.id}/sblocca`))}>Sblocca</button>}
-                  {locale && !ioStesso && superadmin && (
+                  {locale && !ioStesso && superadmin && !globale && (
                     <button
                       onClick={() => {
                         const password = generaPassword();

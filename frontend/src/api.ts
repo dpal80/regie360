@@ -69,9 +69,18 @@ export function formatoDataOra(d: string | null | undefined): string {
   return new Date(d).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
 }
 
-export type Ruolo = "superadmin" | "responsabile" | "operatore";
+export type Ruolo = "admin_globale" | "superadmin" | "responsabile" | "operatore";
 
-export const RUOLI: Record<Ruolo, string> = { superadmin: "Super-admin", responsabile: "Responsabile", operatore: "Operatore" };
+export const RUOLI: Record<Ruolo, string> = {
+  admin_globale: "Amministratore globale",
+  superadmin: "Super-admin",
+  responsabile: "Responsabile",
+  operatore: "Operatore",
+};
+
+// L'amministratore globale ha anche tutti i permessi del super-admin.
+export const eSuperadmin = (u: { ruolo: Ruolo } | null | undefined) =>
+  u != null && (u.ruolo === "superadmin" || u.ruolo === "admin_globale");
 
 // Il super-admin ha anche tutti i permessi del Responsabile.
 export const eResponsabile = (u: { ruolo: Ruolo } | null | undefined) => u != null && u.ruolo !== "operatore";

@@ -6,7 +6,6 @@ token a ogni accesso (NethVoice ne tiene uno solo per utente, e uno nuovo revoca
 """
 
 import base64
-import hashlib
 import json
 import logging
 import ssl
@@ -14,11 +13,11 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import Impostazione, Utente
+from app.segreti import cifra, decifra
 
 log = logging.getLogger(__name__)
 
@@ -63,12 +62,6 @@ def config_nethvoice(db: Session) -> ConfigNethVoice:
         sip_porta=str(v.get("sip_porta", "")),
         certificato_ca=v.get("certificato_ca", ""),
     )
-
-
-def _cifrario() -> Fernet:
-    # Chiave derivata da JWT_SECRET: se cambia, i telefoni vanno ricollegati.
-    chiave = hashlib.sha256(b"regie360-telefonia:" + get_settings().jwt_secret.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(chiave))
 
 
 def _chiama(cfg: ConfigNethVoice, metodo: str, percorso: str, *, token: str | None = None,
@@ -127,16 +120,12 @@ def ottieni_telefono(cfg: ConfigNethVoice, username: str, password: str) -> dict
 
 
 def salva_telefono(utente: Utente, telefono: dict) -> None:
-    utente.telefono_cifrato = _cifrario().encrypt(json.dumps(telefono).encode()).decode()
+    utente.telefono_cifrato = cifra(json.dumps(telefono))
 
 
 def leggi_telefono(utente: Utente) -> dict | None:
-    if not utente.telefono_cifrato:
-        return None
-    try:
-        return json.loads(_cifrario().decrypt(utente.telefono_cifrato.encode()))
-    except (InvalidToken, ValueError):
-        return None
+    chiaro = decifra(utente.telefono_cifrato)
+    return json.loads(chiaro) if chiaro else None
 
 
 def data_config(cfg: ConfigNethVoice, telefono: dict) -> str:

@@ -27,6 +27,10 @@ Json = JSON().with_variant(JSONB(), "postgresql")
 RUOLO_SUPERADMIN = "superadmin"
 RUOLO_RESPONSABILE = "responsabile"
 RUOLO_OPERATORE = "operatore"
+# L'amministratore globale è uno solo (l'utente ADMIN_USERNAME): ha i permessi del super-admin,
+# il ruolo non si assegna ad altri e il suo utente non può essere modificato da nessuno.
+RUOLO_ADMIN_GLOBALE = "admin_globale"
+# I ruoli che si possono assegnare dalla pagina Utenti.
 RUOLI = (RUOLO_SUPERADMIN, RUOLO_RESPONSABILE, RUOLO_OPERATORE)
 
 ORIGINE_AD = "ad"
@@ -54,13 +58,18 @@ class Utente(Base):
     creato_il: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     @property
+    def admin_globale(self) -> bool:
+        return self.ruolo == RUOLO_ADMIN_GLOBALE
+
+    @property
     def superadmin(self) -> bool:
-        return self.ruolo == RUOLO_SUPERADMIN
+        """Vero anche per l'amministratore globale, che ha tutti i permessi del super-admin."""
+        return self.ruolo in (RUOLO_SUPERADMIN, RUOLO_ADMIN_GLOBALE)
 
     @property
     def responsabile(self) -> bool:
         """Vero anche per il super-admin, che ha tutti i permessi del Responsabile."""
-        return self.ruolo in (RUOLO_RESPONSABILE, RUOLO_SUPERADMIN)
+        return self.ruolo in (RUOLO_RESPONSABILE, RUOLO_SUPERADMIN, RUOLO_ADMIN_GLOBALE)
 
 
 class Sede(Base):

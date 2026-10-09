@@ -14,13 +14,14 @@ from app.api import (
     importazioni,
     impostazioni,
     opportunita,
+    posta,
     team,
     telefonia,
     utenti,
 )
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import ORIGINE_LOCALE, RUOLO_SUPERADMIN, Utente
+from app.models import ORIGINE_LOCALE, RUOLO_ADMIN_GLOBALE, Utente
 from app.security import hash_password, normalizza_username
 
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +63,7 @@ async def protezione_csrf(request: Request, call_next):
 
 for r in (
     auth.router, utenti.router, importazioni.router, anagrafica.router, impostazioni.router,
-    team.router, elenchi.router, campagne.router, opportunita.router, telefonia.router,
+    team.router, elenchi.router, campagne.router, opportunita.router, telefonia.router, posta.router,
 ):
     app.include_router(r, prefix="/api")
 
@@ -73,7 +74,10 @@ def salute():
 
 
 def crea_admin_emergenza() -> None:
-    """Crea l'amministratore locale al primo avvio, se è impostata ADMIN_PASSWORD."""
+    """Crea l'amministratore globale al primo avvio, se è impostata ADMIN_PASSWORD.
+
+    È anche l'accesso di emergenza: utente locale, entra anche quando l'Active Directory non risponde.
+    """
     s = get_settings()
     if not s.admin_password:
         return
@@ -84,8 +88,8 @@ def crea_admin_emergenza() -> None:
             insert(Utente)
             .values(
                 username=username,
-                nome="Amministratore di emergenza",
-                ruolo=RUOLO_SUPERADMIN,
+                nome="Amministratore globale",
+                ruolo=RUOLO_ADMIN_GLOBALE,
                 origine=ORIGINE_LOCALE,
                 password_hash=hash_password(s.admin_password),
                 attivo=True,
@@ -94,12 +98,12 @@ def crea_admin_emergenza() -> None:
             .on_conflict_do_nothing(index_elements=["username"])
             .returning(Utente.id)
         ).scalar()
-        # Un amministratore di emergenza creato prima che esistesse il super-admin viene promosso.
+        # Un amministratore creato prima che esistesse il ruolo di amministratore globale viene promosso.
         db.execute(
             update(Utente)
             .where(Utente.username == username, Utente.origine == ORIGINE_LOCALE,
-                   Utente.ruolo != RUOLO_SUPERADMIN)
-            .values(ruolo=RUOLO_SUPERADMIN)
+                   Utente.ruolo != RUOLO_ADMIN_GLOBALE)
+            .values(ruolo=RUOLO_ADMIN_GLOBALE)
         )
         db.commit()
     if creato:

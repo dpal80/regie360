@@ -1,5 +1,5 @@
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
-import { eResponsabile, RUOLI } from "./api";
+import { eResponsabile, eSuperadmin, RUOLI } from "./api";
 import { useAuth } from "./auth";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -19,6 +19,7 @@ import Team from "./pages/Team";
 import Elenchi from "./pages/Elenchi";
 import ActiveDirectory from "./pages/ActiveDirectory";
 import Telefono from "./pages/Telefono";
+import Microsoft365 from "./pages/Microsoft365";
 import { TelefonoProvider } from "./telefono";
 
 export default function App() {
@@ -35,7 +36,7 @@ export default function App() {
   }
 
   const responsabile = eResponsabile(utente);
-  const superadmin = utente.ruolo === "superadmin";
+  const superadmin = eSuperadmin(utente);
 
   return (
     <TelefonoProvider>
@@ -59,6 +60,7 @@ export default function App() {
               <NavLink to="/utenti">Utenti</NavLink>
               <NavLink to="/elenchi">Elenchi</NavLink>
               {superadmin && <NavLink to="/active-directory">Active Directory</NavLink>}
+              {superadmin && <NavLink to="/microsoft365">Microsoft 365</NavLink>}
               <NavLink to="/registro">Registro attività</NavLink>
             </>
           )}
@@ -85,6 +87,7 @@ export default function App() {
               <Route path="/team" element={<Team />} />
               <Route path="/elenchi" element={<Elenchi />} />
               {superadmin && <Route path="/active-directory" element={<ActiveDirectory />} />}
+              {superadmin && <Route path="/microsoft365" element={<Microsoft365 />} />}
               <Route path="/clienti" element={<Clienti />} />
               <Route path="/clienti/:id" element={<ClienteDettaglio />} />
               <Route path="/veicoli" element={<Veicoli />} />

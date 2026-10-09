@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, cancella, post, put } from "../api";
+import { api, cancella, eSuperadmin, post, put } from "../api";
 import { useAuth } from "../auth";
 import { useTelefono, type StatoTelefono } from "../telefono";
 
@@ -9,7 +9,7 @@ const VUOTA: NethVoice = { attivo: true, cti_host: "", sip_host: "", sip_porta: 
 
 export default function Telefono() {
   const { utente } = useAuth();
-  const superadmin = utente?.ruolo === "superadmin";
+  const superadmin = eSuperadmin(utente);
   const { stato, ricarica } = useTelefono();
   const [credenziali, setCredenziali] = useState({ username: utente?.username ?? "", password: "" });
   const [config, setConfig] = useState<NethVoice>(VUOTA);

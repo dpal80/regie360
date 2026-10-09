@@ -74,6 +74,11 @@ def _controlla_superadmin(io: Utente, utente: Utente | None, nuovo_ruolo: str | 
         raise HTTPException(403, "Operazione riservata al super-admin")
 
 
+def _controlla_admin_globale(utente: Utente) -> None:
+    if utente.admin_globale:
+        raise HTTPException(400, "L'amministratore globale non può essere modificato")
+
+
 def _admin_emergenza(utente: Utente) -> bool:
     return utente.origine == ORIGINE_LOCALE and utente.username == normalizza_username(
         get_settings().admin_username
@@ -141,6 +146,7 @@ def modifica(
         raise HTTPException(404, "Utente non trovato")
     _controlla_ruolo(dati.ruolo)
     _controlla_superadmin(io, utente, dati.ruolo)
+    _controlla_admin_globale(utente)
     if utente.id == io.id and (dati.attivo is False or (dati.ruolo and dati.ruolo != io.ruolo)):
         raise HTTPException(400, "Non puoi disattivare o cambiare ruolo a te stesso")
     if _admin_emergenza(utente) and (dati.attivo is False or (dati.ruolo and dati.ruolo != utente.ruolo)):
@@ -190,6 +196,7 @@ def reimposta_password(
     utente = db.get(Utente, utente_id)
     if utente is None:
         raise HTTPException(404, "Utente non trovato")
+    _controlla_admin_globale(utente)
     if utente.origine != ORIGINE_LOCALE:
         raise HTTPException(400, "La password degli utenti di dominio si gestisce in Active Directory")
     if utente.id == io.id:

@@ -40,7 +40,9 @@ uno rilasciato dalla CA interna: si mettono `certs/crm.crt` e `certs/crm.key` e 
 
 ### Utenti di esempio per le prove
 
-Su un'installazione di prova si possono creare un Responsabile e tre Operatori locali:
+Su un'installazione di prova si possono creare un Super-admin, un Responsabile e tre Operatori locali,
+con password facili da ricordare (per esempio `op.rossi` / `pass-rossi`). Rilanciando il comando le
+password di esempio vengono ripristinate:
 
 ```sh
 docker compose exec backend python -m app.semina
@@ -72,8 +74,8 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
 - **Utenti locali**: il Responsabile può creare anche utenti con una password del CRM (per chi non ha un
   account di dominio). Riceve una password provvisoria e la cambia al primo accesso; se la dimentica, il
   Responsabile gliene assegna una nuova. Minimo 10 caratteri, salvata con Argon2.
-- **Amministratore di emergenza**: utente locale (`ADMIN_USERNAME` / `ADMIN_PASSWORD`, password salvata
-  con Argon2), creato al primo avvio. Serve quando l'AD non risponde.
+- **Amministratore globale**: utente locale (`ADMIN_USERNAME` / `ADMIN_PASSWORD`, password salvata
+  con Argon2), creato al primo avvio. È anche l'accesso di emergenza quando l'AD non risponde.
 - Sessione in cookie HttpOnly/Secure/SameSite=Strict, durata `JWT_MINUTI` con rinnovo automatico.
   Dopo 5 tentativi falliti l'utente resta bloccato 15 minuti (il Responsabile può sbloccarlo).
 - Ruoli: **Operatore** (le campagne dei suoi team, i contatti assegnati a lui e le sue opportunità),
@@ -81,7 +83,9 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
   tutto quello che fa il Responsabile amministra il sistema: assegna una nuova password agli utenti
   locali, nomina altri super-admin e imposta i collegamenti ad Active Directory e NethVoice. Degli
   utenti di dominio anche il super-admin può solo assegnare il ruolo: la password è quella di Windows.
-  L'amministratore di emergenza è sempre super-admin. Ogni API controlla il ruolo lato server.
+  Sopra a tutti c'è l'**amministratore globale**, uno solo: è l'utente `ADMIN_USERNAME`, ha i permessi
+  del super-admin, il suo ruolo non si assegna ad altri e il suo utente non può essere modificato da
+  nessuno (la password la cambia lui stesso). Ogni API controlla il ruolo lato server.
 
 ## Import del file Excel
 
@@ -135,6 +139,17 @@ non serve internet). È software GPL-3.0, incluso senza modifiche.
 Servono HTTPS, il permesso del microfono nel browser e il telefono web (interno WebRTC) attivo su
 NethVoice per l'operatore. I PC devono raggiungere NethVoice direttamente: per questo la regola
 `connect-src` del proxy ammette collegamenti `https:` e `wss:` verso altri server.
+
+## E-mail con Microsoft 365
+
+Il CRM può spedire e-mail attraverso un'app registrata in Entra ID (Microsoft Graph), dalla pagina
+**Microsoft 365** riservata ai super-admin: ID tenant, ID applicazione, segreto (salvato cifrato) e casella
+mittente, con un pulsante per l'e-mail di prova. All'app serve il permesso applicativo `Mail.Send` con
+consenso dell'amministratore; conviene limitarla alla sola casella mittente con un criterio di accesso
+alle applicazioni di Exchange Online. Per spedire, il server del CRM deve raggiungere
+`login.microsoftonline.com` e `graph.microsoft.com`: è l'unico collegamento del CRM verso internet.
+
+Per ora c'è il collegamento e la prova di invio: quali e-mail spedire è ancora da decidere.
 
 ## Sviluppo
 

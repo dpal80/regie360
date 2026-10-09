@@ -4,7 +4,7 @@ from tests.conftest import crea_utente_ad
 def test_admin_locale_entra(admin):
     r = admin.get("/api/auth/me")
     assert r.status_code == 200
-    assert r.json()["ruolo"] == "superadmin"
+    assert r.json()["ruolo"] == "admin_globale"
     assert r.json()["origine"] == "locale"
 
 

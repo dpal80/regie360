@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.audit import registra
 from app.db import get_db
-from app.models import Team, Utente
+from app.models import Campagna, Team, Utente
 from app.security import solo_responsabile
 
 router = APIRouter(prefix="/team", tags=["team"])
@@ -25,6 +25,8 @@ class TeamOut(BaseModel):
     nome: str
     attivo: bool
     membri: list[Membro]
+    # Un team con campagne non si elimina (resterebbero senza team): si disattiva.
+    campagne: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -55,9 +57,17 @@ def _nome_libero(db: Session, nome: str, escluso: int | None = None) -> str:
     return nome
 
 
+def _out(db: Session, team: Team) -> TeamOut:
+    out = TeamOut.model_validate(team)
+    out.campagne = db.scalar(select(func.count(Campagna.id)).where(Campagna.team_id == team.id))
+    return out
+
+
 @router.get("", response_model=list[TeamOut])
 def elenco(db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)):
-    return db.scalars(select(Team).options(selectinload(Team.membri)).order_by(Team.nome)).all()
+    per_team = dict(db.execute(select(Campagna.team_id, func.count()).group_by(Campagna.team_id)).all())
+    team = db.scalars(select(Team).options(selectinload(Team.membri)).order_by(Team.nome)).all()
+    return [TeamOut.model_validate(t).model_copy(update={"campagne": per_team.get(t.id, 0)}) for t in team]
 
 
 @router.post("", response_model=TeamOut, status_code=201)
@@ -73,7 +83,7 @@ def crea(
     registra(db, "team_creato", utente=io, oggetto=f"team:{team.id}",
              dettaglio={"nome": team.nome, "membri": dati.membri}, request=request)
     db.commit()
-    return team
+    return _out(db, team)
 
 
 @router.patch("/{team_id}", response_model=TeamOut)
@@ -96,4 +106,24 @@ def modifica(
     registra(db, "team_modificato", utente=io, oggetto=f"team:{team.id}",
              dettaglio=dati.model_dump(exclude_unset=True), request=request)
     db.commit()
-    return team
+    return _out(db, team)
+
+
+@router.delete("/{team_id}", status_code=204)
+def elimina(
+    team_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    io: Utente = Depends(solo_responsabile),
+):
+    team = db.get(Team, team_id)
+    if team is None:
+        raise HTTPException(404, "Team non trovato")
+    campagne = db.scalar(select(func.count(Campagna.id)).where(Campagna.team_id == team.id))
+    if campagne:
+        raise HTTPException(
+            409, f"Questo team ha {campagne} campagne: non si può eliminare. Puoi disattivarlo, oppure assegnare prima le campagne a un altro team."
+        )
+    registra(db, "team_eliminato", utente=io, oggetto=f"team:{team.id}", dettaglio={"nome": team.nome}, request=request)
+    db.delete(team)
+    db.commit()
