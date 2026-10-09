@@ -1,4 +1,4 @@
-# CRM REGIE AUTO: tutto gira in locale, nessun servizio esterno.
+# Regie360 (CRM REGIE AUTO): tutto gira in locale, nessun servizio esterno.
 # Avvio: cp .env.example .env (e compilarlo), poi `docker compose up -d --build`.
 
 services:

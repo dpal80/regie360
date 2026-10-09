@@ -29,7 +29,7 @@ export default function App() {
     <div className="layout">
       <aside className="menu">
         <div className="logo">
-          CRM <strong>REGIE AUTO</strong>
+          Regie<strong>360</strong>
         </div>
         <nav>
           <NavLink to="/" end>Home</NavLink>

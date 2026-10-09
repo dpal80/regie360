@@ -26,9 +26,9 @@ export default function Login() {
     <div className="login">
       <form onSubmit={entra} className="scheda">
         <h1>
-          CRM <strong>REGIE AUTO</strong>
+          Regie<strong>360</strong>
         </h1>
-        <p className="tenue">Accedi con le credenziali di Windows o con quelle che ti ha dato il responsabile</p>
+        <p className="tenue">Il CRM di REGIE AUTO. Accedi con le credenziali di Windows o con quelle che ti ha dato il responsabile</p>
         <label>
           Nome utente
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />

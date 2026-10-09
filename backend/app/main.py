@@ -22,7 +22,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="CRM REGIE AUTO",
+    title="Regie360",
     docs_url="/api/docs" if get_settings().api_docs else None,
     openapi_url="/api/openapi.json" if get_settings().api_docs else None,
     redoc_url=None,
