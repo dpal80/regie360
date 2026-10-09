@@ -1,0 +1,49 @@
+# CRM REGIE AUTO: tutto gira in locale, nessun servizio esterno.
+# Avvio: cp .env.example .env (e compilarlo), poi `docker compose up -d --build`.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?imposta POSTGRES_PASSWORD nel file .env}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://crm:${POSTGRES_PASSWORD}@db:5432/crm
+    volumes:
+      # certificato della CA interna per LDAPS, se serve (vedi AD_CA_FILE)
+      - ./certs:/certs:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    build:
+      context: .
+      dockerfile: proxy/Dockerfile
+    restart: unless-stopped
+    environment:
+      CRM_HOSTNAME: ${CRM_HOSTNAME:-crm.local}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./certs:/etc/nginx/certs
+    depends_on:
+      - backend
+
+volumes:
+  dbdata:

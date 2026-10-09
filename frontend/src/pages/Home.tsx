@@ -1,0 +1,44 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../api";
+import { useAuth } from "../auth";
+
+type Riepilogo = { clienti: number; veicoli: number; passaggi: number };
+
+export default function Home() {
+  const { utente } = useAuth();
+  const [riepilogo, setRiepilogo] = useState<Riepilogo | null>(null);
+  const responsabile = utente?.ruolo === "responsabile";
+
+  useEffect(() => {
+    if (responsabile) api<Riepilogo>("/riepilogo").then(setRiepilogo).catch(() => undefined);
+  }, [responsabile]);
+
+  return (
+    <>
+      <h1>Ciao {utente?.nome}</h1>
+      {responsabile ? (
+        <>
+          <div className="tessere">
+            <Link to="/clienti" className="tessera">
+              <span>{riepilogo?.clienti.toLocaleString("it-IT") ?? "…"}</span>clienti
+            </Link>
+            <Link to="/veicoli" className="tessera">
+              <span>{riepilogo?.veicoli.toLocaleString("it-IT") ?? "…"}</span>veicoli
+            </Link>
+            <div className="tessera">
+              <span>{riepilogo?.passaggi.toLocaleString("it-IT") ?? "…"}</span>passaggi in officina
+            </div>
+          </div>
+          {riepilogo?.clienti === 0 && (
+            <p>
+              Il CRM è vuoto: parti da <Link to="/importa">Importa dati</Link> per caricare il file Excel.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="tenue">Le liste di chiamata arriveranno con la prossima versione del CRM.</p>
+      )}
+    </>
+  );
+}
