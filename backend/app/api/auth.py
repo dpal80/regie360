@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import registra
 from app.db import get_db
-from app.models import ORIGINE_LOCALE, Utente
+from app.models import ORIGINE_AD, ORIGINE_LOCALE, Utente
 from app.security import (
     PASSWORD_MIN,
     ADNonRaggiungibile,
@@ -17,6 +17,7 @@ from app.security import (
     utente_corrente,
     verifica_password,
 )
+from app.services.telefonia import collega_al_login
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -59,6 +60,8 @@ def login(dati: LoginIn, request: Request, response: Response, db: Session = Dep
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Nome utente o password non corretti")
 
+    if utente.origine == ORIGINE_AD:
+        collega_al_login(db, utente, dati.password)
     imposta_cookie(response, crea_token(utente))
     registra(db, "login", utente=utente, request=request)
     db.commit()

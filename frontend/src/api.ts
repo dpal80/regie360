@@ -69,11 +69,18 @@ export function formatoDataOra(d: string | null | undefined): string {
   return new Date(d).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
 }
 
+export type Ruolo = "superadmin" | "responsabile" | "operatore";
+
+export const RUOLI: Record<Ruolo, string> = { superadmin: "Super-admin", responsabile: "Responsabile", operatore: "Operatore" };
+
+// Il super-admin ha anche tutti i permessi del Responsabile.
+export const eResponsabile = (u: { ruolo: Ruolo } | null | undefined) => u != null && u.ruolo !== "operatore";
+
 export type Utente = {
   id: number;
   username: string;
   nome: string;
-  ruolo: "responsabile" | "operatore";
+  ruolo: Ruolo;
   origine: "ad" | "locale";
   interno: string | null;
   deve_cambiare_password: boolean;

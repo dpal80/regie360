@@ -1,4 +1,5 @@
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { eResponsabile, RUOLI } from "./api";
 import { useAuth } from "./auth";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
@@ -17,6 +18,8 @@ import CampagnaDettaglio from "./pages/CampagnaDettaglio";
 import Team from "./pages/Team";
 import Elenchi from "./pages/Elenchi";
 import ActiveDirectory from "./pages/ActiveDirectory";
+import Telefono from "./pages/Telefono";
+import { TelefonoProvider } from "./telefono";
 
 export default function App() {
   const { utente, caricamento, logout } = useAuth();
@@ -31,9 +34,11 @@ export default function App() {
     );
   }
 
-  const responsabile = utente.ruolo === "responsabile";
+  const responsabile = eResponsabile(utente);
+  const superadmin = utente.ruolo === "superadmin";
 
   return (
+    <TelefonoProvider>
     <div className="layout">
       <aside className="menu">
         <div className="logo">
@@ -43,6 +48,7 @@ export default function App() {
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/chiamate">Le mie chiamate</NavLink>
           <NavLink to="/opportunita">Opportunità</NavLink>
+          <NavLink to="/telefono">Telefono</NavLink>
           {responsabile && (
             <>
               <NavLink to="/campagne">Campagne</NavLink>
@@ -52,14 +58,14 @@ export default function App() {
               <NavLink to="/importa">Importa dati</NavLink>
               <NavLink to="/utenti">Utenti</NavLink>
               <NavLink to="/elenchi">Elenchi</NavLink>
-              <NavLink to="/active-directory">Active Directory</NavLink>
+              {superadmin && <NavLink to="/active-directory">Active Directory</NavLink>}
               <NavLink to="/registro">Registro attività</NavLink>
             </>
           )}
         </nav>
         <div className="chi">
           <div>{utente.nome}</div>
-          <small>{responsabile ? "Responsabile" : "Operatore"}</small>
+          <small>{RUOLI[utente.ruolo]}</small>
           {utente.origine === "locale" && <NavLink to="/password" className="link-chiaro">Cambia password</NavLink>}
           <button className="link" onClick={logout}>Esci</button>
         </div>
@@ -71,13 +77,14 @@ export default function App() {
           <Route path="/chiamate" element={<Chiamate />} />
           <Route path="/contatti/:id" element={<Contatto />} />
           <Route path="/opportunita" element={<Opportunita />} />
+          <Route path="/telefono" element={<Telefono />} />
           {responsabile && (
             <>
               <Route path="/campagne" element={<Campagne />} />
               <Route path="/campagne/:id" element={<CampagnaDettaglio />} />
               <Route path="/team" element={<Team />} />
               <Route path="/elenchi" element={<Elenchi />} />
-              <Route path="/active-directory" element={<ActiveDirectory />} />
+              {superadmin && <Route path="/active-directory" element={<ActiveDirectory />} />}
               <Route path="/clienti" element={<Clienti />} />
               <Route path="/clienti/:id" element={<ClienteDettaglio />} />
               <Route path="/veicoli" element={<Veicoli />} />
@@ -90,5 +97,6 @@ export default function App() {
         </Routes>
       </main>
     </div>
+    </TelefonoProvider>
   );
 }

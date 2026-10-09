@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, formatoDataOra, patch, post } from "../api";
+import { api, formatoDataOra, patch, post, type Ruolo } from "../api";
 import { useAuth } from "../auth";
 
 type Utente = {
   id: number;
   username: string;
   nome: string;
-  ruolo: "responsabile" | "operatore";
+  ruolo: Ruolo;
   origine: "ad" | "locale";
   interno: string | null;
   attivo: boolean;
@@ -34,6 +34,15 @@ export default function Utenti() {
   const [nuovo, setNuovo] = useState(VUOTO);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
+  const superadmin = io?.ruolo === "superadmin";
+  // Solo un super-admin nomina altri super-admin.
+  const opzioniRuolo = (
+    <>
+      <option value="operatore">Operatore</option>
+      <option value="responsabile">Responsabile</option>
+      {superadmin && <option value="superadmin">Super-admin</option>}
+    </>
+  );
   // Le credenziali di dominio per sfogliare restano solo in questa pagina: il CRM non le salva.
   const [sfoglia, setSfoglia] = useState({ aperto: false, username: "", password: "", q: "" });
   const [trovati, setTrovati] = useState<Sfoglia | null>(null);
@@ -98,6 +107,9 @@ export default function Utenti() {
       <p className="tenue">
         Gli utenti di dominio entrano con le credenziali di Windows (Active Directory); gli utenti locali con una password
         del CRM, che scelgono al primo accesso. Qui decidi chi può usare il CRM e con quale ruolo.
+        {superadmin
+          ? " Come super-admin puoi anche assegnare una nuova password agli utenti locali; a quelli di dominio puoi solo assegnare il ruolo, perché la password è quella di Windows."
+          : " Le password degli utenti locali e la nomina dei super-admin spettano a un super-admin."}
       </p>
       {errore && <div className="errore">{errore}</div>}
       {avviso && <div className="messaggio-ok">{avviso}</div>}
@@ -117,8 +129,7 @@ export default function Utenti() {
         <label>
           Ruolo
           <select value={nuovo.ruolo} onChange={(e) => setNuovo({ ...nuovo, ruolo: e.target.value })}>
-            <option value="operatore">Operatore</option>
-            <option value="responsabile">Responsabile</option>
+            {opzioniRuolo}
           </select>
         </label>
         <label>Interno telefonico<input value={nuovo.interno} onChange={(e) => setNuovo({ ...nuovo, interno: e.target.value })} /></label>
@@ -165,8 +176,7 @@ export default function Utenti() {
                         <td>
                           {!u.gia_nel_crm && (
                             <select value={ruoli[u.username] ?? "operatore"} onChange={(e) => setRuoli({ ...ruoli, [u.username]: e.target.value })}>
-                              <option value="operatore">Operatore</option>
-                              <option value="responsabile">Responsabile</option>
+                              {opzioniRuolo}
                             </select>
                           )}
                         </td>
@@ -194,6 +204,8 @@ export default function Utenti() {
             const ioStesso = u.id === io?.id;
             const locale = u.origine === "locale";
             const adminEmergenza = u.admin_emergenza;
+            // Un Responsabile non modifica l'utente di un super-admin.
+            const protetto = u.ruolo === "superadmin" && !superadmin;
             return (
               <tr key={u.id} className={u.attivo ? "" : "spento"}>
                 <td>{u.username}</td>
@@ -202,16 +214,17 @@ export default function Utenti() {
                 <td>
                   <select
                     value={u.ruolo}
-                    disabled={ioStesso || adminEmergenza}
+                    disabled={ioStesso || adminEmergenza || protetto}
                     onChange={(e) => azione(() => patch(`/utenti/${u.id}`, { ruolo: e.target.value }))}
                   >
-                    <option value="operatore">Operatore</option>
-                    <option value="responsabile">Responsabile</option>
+                    {opzioniRuolo}
+                    {protetto && <option value="superadmin">Super-admin</option>}
                   </select>
                 </td>
                 <td>
                   <input
                     className="corto"
+                    disabled={protetto}
                     defaultValue={u.interno ?? ""}
                     onBlur={(e) => e.target.value !== (u.interno ?? "") && azione(() => patch(`/utenti/${u.id}`, { interno: e.target.value }))}
                   />
@@ -222,8 +235,8 @@ export default function Utenti() {
                 </td>
                 <td>
                   <div className="azioni-riga">
-                  {bloccato(u) && <button onClick={() => azione(() => post(`/utenti/${u.id}/sblocca`))}>Sblocca</button>}
-                  {locale && !ioStesso && (
+                  {bloccato(u) && !protetto && <button onClick={() => azione(() => post(`/utenti/${u.id}/sblocca`))}>Sblocca</button>}
+                  {locale && !ioStesso && superadmin && (
                     <button
                       onClick={() => {
                         const password = generaPassword();
@@ -236,7 +249,7 @@ export default function Utenti() {
                       Nuova password
                     </button>
                   )}
-                  {!ioStesso && !adminEmergenza && (
+                  {!ioStesso && !adminEmergenza && !protetto && (
                     <button onClick={() => azione(() => patch(`/utenti/${u.id}`, { attivo: !u.attivo }))}>
                       {u.attivo ? "Disattiva" : "Riattiva"}
                     </button>

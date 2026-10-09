@@ -17,7 +17,6 @@ from app.models import (
     ELENCO_MOTIVO_RICHIAMO,
     ESITO_ESCLUSO,
     ESITO_RICHIAMO,
-    RUOLO_RESPONSABILE,
     STATI_CONTATTO,
     Campagna,
     Chiamata,
@@ -112,6 +111,8 @@ class ChiamataNuova(BaseModel):
     data_richiamo: datetime | None = None
     numero: str | None = Field(default=None, max_length=30)
     durata_secondi: int | None = Field(default=None, ge=0, le=86400)
+    # ID della chiamata su NethVoice, quando la telefonata è partita da Phone Island.
+    unique_id: str | None = Field(default=None, max_length=100)
 
 
 class NotaNuova(BaseModel):
@@ -252,7 +253,7 @@ def crea(
 @router.get("/campagne", response_model=list[CampagnaOut])
 def elenco(db: Session = Depends(get_db), io: Utente = Depends(utente_corrente)):
     query = select(Campagna).options(selectinload(Campagna.team), selectinload(Campagna.motivo))
-    if io.ruolo != RUOLO_RESPONSABILE:
+    if not io.responsabile:
         query = query.where(Campagna.stato == CAMPAGNA_ATTIVA, Campagna.team_id.in_(team_di(db, io)))
     return _conteggi(db, list(db.scalars(query.order_by(Campagna.id.desc()))), io)
 
@@ -515,7 +516,7 @@ def registra_chiamata(
     chiamata = Chiamata(
         contatto_id=c.id, cliente_id=cliente.id, operatore_id=io.id, direzione="uscita",
         numero=(dati.numero or cliente.telefono_cellulare or cliente.telefono_fisso),
-        durata_secondi=dati.durata_secondi, esito_id=esito.id,
+        durata_secondi=dati.durata_secondi, esito_id=esito.id, unique_id=dati.unique_id,
     )
     db.add(chiamata)
     db.flush()

@@ -10,11 +10,12 @@ import sys
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db import SessionLocal
-from app.models import ORIGINE_LOCALE, RUOLO_OPERATORE, RUOLO_RESPONSABILE, Utente
+from app.models import ORIGINE_LOCALE, RUOLO_OPERATORE, RUOLO_RESPONSABILE, RUOLO_SUPERADMIN, Utente
 from app.security import config_ad, hash_password, normalizza_username
 
 # (username, nome, ruolo, interno, password)
 UTENTI_DI_ESEMPIO = [
+    ("super.prova", "Paolo Gialli (prova)", RUOLO_SUPERADMIN, "200", "Prova-SuperAdmin1"),
     ("resp.prova", "Giulia Bianchi (prova)", RUOLO_RESPONSABILE, "201", "Prova-Responsabile1"),
     ("op.rossi", "Marco Rossi (prova)", RUOLO_OPERATORE, "211", "Prova-Operatore1"),
     ("op.verdi", "Sara Verdi (prova)", RUOLO_OPERATORE, "212", "Prova-Operatore2"),

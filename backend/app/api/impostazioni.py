@@ -15,6 +15,7 @@ from app.security import (
     config_ad,
     normalizza_username,
     solo_responsabile,
+    solo_superadmin,
     verifica_ad,
 )
 
@@ -74,7 +75,7 @@ def _out(cfg: ConfigAD) -> ADOut:
 
 
 @router.get("/ad", response_model=ADOut)
-def leggi_ad(db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)):
+def leggi_ad(db: Session = Depends(get_db), _: Utente = Depends(solo_superadmin)):
     return _out(config_ad(db))
 
 
@@ -83,7 +84,7 @@ def salva_ad(
     dati: ADIn,
     request: Request,
     db: Session = Depends(get_db),
-    io: Utente = Depends(solo_responsabile),
+    io: Utente = Depends(solo_superadmin),
 ):
     cfg = _pulisci(dati)
     valore = {
@@ -104,7 +105,7 @@ def salva_ad(
 
 
 @router.delete("/ad", response_model=ADOut)
-def rimuovi_ad(request: Request, db: Session = Depends(get_db), io: Utente = Depends(solo_responsabile)):
+def rimuovi_ad(request: Request, db: Session = Depends(get_db), io: Utente = Depends(solo_superadmin)):
     """Toglie le impostazioni salvate dalla pagina: tornano a valere quelle del file .env, se ci sono."""
     salvata = db.get(Impostazione, IMPOSTAZIONE_AD)
     if salvata is not None:
@@ -119,7 +120,7 @@ def prova_ad(
     dati: ProvaIn,
     request: Request,
     db: Session = Depends(get_db),
-    io: Utente = Depends(solo_responsabile),
+    io: Utente = Depends(solo_superadmin),
 ):
     """Prova il collegamento con i dati del modulo, prima di salvarli, usando un utente di dominio."""
     cfg = _pulisci(dati)

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, patch, post } from "../api";
+import { api, patch, post, RUOLI, type Ruolo } from "../api";
 
-type Membro = { id: number; nome: string; ruolo: string; attivo: boolean };
+type Membro = { id: number; nome: string; ruolo: Ruolo; attivo: boolean };
 type Team = { id: number; nome: string; attivo: boolean; membri: Membro[] };
 
 export default function TeamPagina() {
@@ -69,7 +69,7 @@ export default function TeamPagina() {
                   checked={t.membri.some((m) => m.id === u.id)}
                   onChange={(e) => cambiaMembro(t, u.id, e.target.checked)}
                 />
-                {u.nome} {u.ruolo === "responsabile" && <small className="tenue">(Responsabile)</small>}
+                {u.nome} {u.ruolo !== "operatore" && <small className="tenue">({RUOLI[u.ruolo]})</small>}
               </label>
             ))}
           </div>

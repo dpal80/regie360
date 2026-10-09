@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api import (
@@ -14,11 +15,12 @@ from app.api import (
     impostazioni,
     opportunita,
     team,
+    telefonia,
     utenti,
 )
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import ORIGINE_LOCALE, RUOLO_RESPONSABILE, Utente
+from app.models import ORIGINE_LOCALE, RUOLO_SUPERADMIN, Utente
 from app.security import hash_password, normalizza_username
 
 logging.basicConfig(level=logging.INFO)
@@ -60,7 +62,7 @@ async def protezione_csrf(request: Request, call_next):
 
 for r in (
     auth.router, utenti.router, importazioni.router, anagrafica.router, impostazioni.router,
-    team.router, elenchi.router, campagne.router, opportunita.router,
+    team.router, elenchi.router, campagne.router, opportunita.router, telefonia.router,
 ):
     app.include_router(r, prefix="/api")
 
@@ -83,7 +85,7 @@ def crea_admin_emergenza() -> None:
             .values(
                 username=username,
                 nome="Amministratore di emergenza",
-                ruolo=RUOLO_RESPONSABILE,
+                ruolo=RUOLO_SUPERADMIN,
                 origine=ORIGINE_LOCALE,
                 password_hash=hash_password(s.admin_password),
                 attivo=True,
@@ -92,6 +94,13 @@ def crea_admin_emergenza() -> None:
             .on_conflict_do_nothing(index_elements=["username"])
             .returning(Utente.id)
         ).scalar()
+        # Un amministratore di emergenza creato prima che esistesse il super-admin viene promosso.
+        db.execute(
+            update(Utente)
+            .where(Utente.username == username, Utente.origine == ORIGINE_LOCALE,
+                   Utente.ruolo != RUOLO_SUPERADMIN)
+            .values(ruolo=RUOLO_SUPERADMIN)
+        )
         db.commit()
     if creato:
         log.info("Creato l'amministratore locale '%s'", username)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, eResponsabile } from "../api";
 import { useAuth } from "../auth";
 
 type Riepilogo = { clienti: number; veicoli: number; passaggi: number };
@@ -8,7 +8,7 @@ type Riepilogo = { clienti: number; veicoli: number; passaggi: number };
 export default function Home() {
   const { utente } = useAuth();
   const [riepilogo, setRiepilogo] = useState<Riepilogo | null>(null);
-  const responsabile = utente?.ruolo === "responsabile";
+  const responsabile = eResponsabile(utente);
 
   useEffect(() => {
     if (responsabile) api<Riepilogo>("/riepilogo").then(setRiepilogo).catch(() => undefined);

@@ -76,8 +76,12 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
   con Argon2), creato al primo avvio. Serve quando l'AD non risponde.
 - Sessione in cookie HttpOnly/Secure/SameSite=Strict, durata `JWT_MINUTI` con rinnovo automatico.
   Dopo 5 tentativi falliti l'utente resta bloccato 15 minuti (il Responsabile può sbloccarlo).
-- Ruoli: **Responsabile** (tutto) e **Operatore** (le campagne dei suoi team, i contatti assegnati a
-  lui e le sue opportunità). Ogni API controlla il ruolo lato server.
+- Ruoli: **Operatore** (le campagne dei suoi team, i contatti assegnati a lui e le sue opportunità),
+  **Responsabile** (campagne, team, anagrafica, import, utenti e ruoli) e **Super-admin**, che oltre a
+  tutto quello che fa il Responsabile amministra il sistema: assegna una nuova password agli utenti
+  locali, nomina altri super-admin e imposta i collegamenti ad Active Directory e NethVoice. Degli
+  utenti di dominio anche il super-admin può solo assegnare il ruolo: la password è quella di Windows.
+  L'amministratore di emergenza è sempre super-admin. Ogni API controlla il ruolo lato server.
 
 ## Import del file Excel
 
@@ -111,6 +115,26 @@ in officina dal numero O.R. Una cella vuota non cancella un dato già presente.
    resta nello storico e per chiudere come persa serve il motivo.
 
 Esiti, motivi di richiamo, fasi, motivi di perdita e prodotti si modificano dalla pagina **Elenchi**.
+
+## Telefonia (NethVoice e Phone Island)
+
+Il telefono è [Phone Island](https://github.com/nethesis/phone-island) di Nethesis, caricato come widget
+dentro il CRM: una copia a versione fissa viene messa nell'immagine del proxy durante la build (in sede
+non serve internet). È software GPL-3.0, incluso senza modifiche.
+
+1. Un super-admin compila nella pagina **Telefono** il server CTI di NethVoice, il server e la porta SIP
+   e, se serve, il certificato della CA interna.
+2. Ogni operatore collega il suo telefono dalla stessa pagina con le credenziali di NethVoice, che non
+   vengono salvate. Agli utenti di dominio il CRM lo collega da solo al primo accesso. Si salva, cifrato,
+   solo il token di Phone Island con l'interno web: NethVoice ne tiene uno per utente e uno nuovo revoca
+   il precedente, quindi il CRM lo riusa finché non si preme «Scollega».
+3. Nella scheda del contatto compare **Chiama** accanto ai numeri. A fine telefonata la scheda propone
+   esito e note, e sulla chiamata restano durata e ID di NethVoice.
+4. Per le chiamate in arrivo il CRM cerca il numero tra i clienti e mostra chi sta chiamando.
+
+Servono HTTPS, il permesso del microfono nel browser e il telefono web (interno WebRTC) attivo su
+NethVoice per l'operatore. I PC devono raggiungere NethVoice direttamente: per questo la regola
+`connect-src` del proxy ammette collegamenti `https:` e `wss:` verso altri server.
 
 ## Sviluppo
 

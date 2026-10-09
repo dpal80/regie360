@@ -14,7 +14,6 @@ from app.models import (
     ELENCO_PRODOTTO,
     FASE_APERTA,
     FASE_PERSA,
-    RUOLO_RESPONSABILE,
     Chiamata,
     Cliente,
     Opportunita,
@@ -143,7 +142,7 @@ def elenco(
 ):
     """Il Responsabile vede tutte le opportunità, l'operatore solo le sue."""
     query = select(Opportunita)
-    if io.ruolo != RUOLO_RESPONSABILE:
+    if not io.responsabile:
         query = query.where(Opportunita.titolare_id == io.id)
     if fase_id:
         query = query.where(Opportunita.fase_id == fase_id)
@@ -209,7 +208,7 @@ def modifica(
     io: Utente = Depends(utente_corrente),
 ):
     o = db.get(Opportunita, opportunita_id)
-    if o is None or (io.ruolo != RUOLO_RESPONSABILE and o.titolare_id != io.id):
+    if o is None or (not io.responsabile and o.titolare_id != io.id):
         raise HTTPException(404, "Opportunità non trovata")
     modifiche = dati.model_dump(exclude_unset=True)
     fase = _voce(db, modifiche.get("fase_id"), ELENCO_FASE, "Fase") or db.get(VoceElenco, o.fase_id)

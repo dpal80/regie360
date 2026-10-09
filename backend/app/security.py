@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal, get_db
-from app.models import ORIGINE_AD, ORIGINE_LOCALE, RUOLO_RESPONSABILE, Impostazione, Utente
+from app.models import ORIGINE_AD, ORIGINE_LOCALE, Impostazione, Utente
 
 log = logging.getLogger(__name__)
 
@@ -305,6 +305,12 @@ def utente_corrente(
 
 
 def solo_responsabile(utente: Utente = Depends(utente_corrente)) -> Utente:
-    if utente.ruolo != RUOLO_RESPONSABILE:
+    if not utente.responsabile:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Operazione riservata al Responsabile")
+    return utente
+
+
+def solo_superadmin(utente: Utente = Depends(utente_corrente)) -> Utente:
+    if not utente.superadmin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Operazione riservata al super-admin")
     return utente

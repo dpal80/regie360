@@ -151,3 +151,8 @@ label.spunta { flex-direction: row; align-items: center; gap: 0.5rem; font-size:
 a.telefono { font-size: 1.15rem; font-weight: 600; }
 td.scaduto { color: var(--rosso); font-weight: 600; }
 input.ampio { width: 100%; min-width: 16rem; }
+
+/* Fase 3: telefonia */
+button.chiama { margin-left: 0.75rem; padding: 0.2rem 0.7rem; }
+.chiamata-in-arrivo { position: fixed; right: 1rem; bottom: 1rem; z-index: 50; display: flex; flex-direction: column; gap: 0.4rem; background: var(--superficie); border: 2px solid var(--accento); border-radius: 10px; padding: 0.9rem 1rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); max-width: 22rem; }
+.chiamata-in-arrivo button { align-self: flex-end; }

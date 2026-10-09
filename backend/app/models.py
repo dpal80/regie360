@@ -22,9 +22,12 @@ from app.db import Base
 # JSONB su PostgreSQL, JSON generico altrove.
 Json = JSON().with_variant(JSONB(), "postgresql")
 
+# Il super-admin fa tutto quello che fa il Responsabile e in più amministra il sistema:
+# password degli utenti locali, altri super-admin, collegamenti ad Active Directory e NethVoice.
+RUOLO_SUPERADMIN = "superadmin"
 RUOLO_RESPONSABILE = "responsabile"
 RUOLO_OPERATORE = "operatore"
-RUOLI = (RUOLO_RESPONSABILE, RUOLO_OPERATORE)
+RUOLI = (RUOLO_SUPERADMIN, RUOLO_RESPONSABILE, RUOLO_OPERATORE)
 
 ORIGINE_AD = "ad"
 ORIGINE_LOCALE = "locale"
@@ -42,11 +45,22 @@ class Utente(Base):
     # Utenti locali: al primo accesso (o dopo un reset) devono scegliere una nuova password.
     deve_cambiare_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     interno: Mapped[str | None] = mapped_column(String(20))
+    # Token di Phone Island e dati SIP dell'utente, cifrati (vedi services/telefonia.py).
+    telefono_cifrato: Mapped[str | None] = mapped_column(Text)
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
     tentativi_falliti: Mapped[int] = mapped_column(Integer, default=0)
     bloccato_fino: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ultimo_accesso: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     creato_il: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def superadmin(self) -> bool:
+        return self.ruolo == RUOLO_SUPERADMIN
+
+    @property
+    def responsabile(self) -> bool:
+        """Vero anche per il super-admin, che ha tutti i permessi del Responsabile."""
+        return self.ruolo in (RUOLO_RESPONSABILE, RUOLO_SUPERADMIN)
 
 
 class Sede(Base):

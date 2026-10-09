@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { CHIAMATA_FINITA, useTelefono, type Telefonata } from "../telefono";
 import { api, formatoData, formatoDataOra, post, STATI_CONTATTO, type ContattoRiga, type Voce } from "../api";
 
 type Scheda = ContattoRiga & {
@@ -30,10 +31,23 @@ export default function Contatto() {
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
   const [inCorso, setInCorso] = useState(false);
+  const { pronto, chiama } = useTelefono();
+  // La telefonata appena chiusa su Phone Island: il suo ID e la durata finiscono sulla chiamata registrata.
+  const [telefonata, setTelefonata] = useState<Telefonata | null>(null);
+
+  useEffect(() => {
+    const finita = (e: Event) => {
+      setTelefonata((e as CustomEvent<Telefonata>).detail);
+      document.getElementById("registra-chiamata")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener(CHIAMATA_FINITA, finita);
+    return () => window.removeEventListener(CHIAMATA_FINITA, finita);
+  }, []);
 
   const carica = () => api<Scheda>(`/contatti/${id}`).then(setScheda).catch((e) => setErrore(e.message));
   useEffect(() => {
     setScheda(null);
+    setTelefonata(null);
     carica();
     api<Voce[]>("/elenchi/esito").then(setEsiti).catch(() => undefined);
     api<{ id: number; nome: string }[]>("/sedi").then(setSedi).catch(() => undefined);
@@ -46,6 +60,14 @@ export default function Contatto() {
   const veicolo = scheda.veicolo_dati;
   const aperto = scheda.stato !== "chiuso" && scheda.campagna_stato === "attiva";
 
+  // Con Phone Island collegato il numero si chiama dal CRM, altrimenti resta un normale collegamento tel:.
+  const numero = (n: string) => (
+    <>
+      <a className="telefono" href={`tel:${n}`}>{n}</a>
+      {pronto && aperto && <button className="primario chiama" onClick={() => chiama(n)}>Chiama</button>}
+    </>
+  );
+
   async function registra(e: FormEvent) {
     e.preventDefault();
     setErrore("");
@@ -56,7 +78,11 @@ export default function Contatto() {
         esito_id: Number(chiamata.esito_id),
         nota: chiamata.nota || null,
         data_richiamo: esito?.effetto === "richiamo" ? iso(chiamata.data_richiamo) : null,
+        unique_id: telefonata?.uniqueId ?? null,
+        durata_secondi: telefonata?.durata ?? null,
+        numero: telefonata?.numero || null,
       });
+      setTelefonata(null);
       if (opportunita.crea) {
         await post("/opportunita", {
           cliente_id: cliente.id,
@@ -121,8 +147,8 @@ export default function Contatto() {
         <section className="scheda">
           <h3>Cliente</h3>
           <dl className="dati">
-            <dt>Cellulare</dt><dd>{cliente.telefono_cellulare && <a className="telefono" href={`tel:${cliente.telefono_cellulare}`}>{cliente.telefono_cellulare}</a>}</dd>
-            <dt>Fisso</dt><dd>{cliente.telefono_fisso && <a className="telefono" href={`tel:${cliente.telefono_fisso}`}>{cliente.telefono_fisso}</a>}</dd>
+            <dt>Cellulare</dt><dd>{cliente.telefono_cellulare && numero(cliente.telefono_cellulare)}</dd>
+            <dt>Fisso</dt><dd>{cliente.telefono_fisso && numero(cliente.telefono_fisso)}</dd>
             <dt>E-mail</dt><dd>{cliente.email}</dd>
             <dt>Codice</dt><dd>{cliente.codice}</dd>
           </dl>
@@ -142,8 +168,13 @@ export default function Contatto() {
       </div>
 
       {aperto ? (
-        <form className="scheda modulo" onSubmit={registra}>
+        <form className="scheda modulo" id="registra-chiamata" onSubmit={registra}>
           <h3 className="larga">Registra la chiamata</h3>
+          {telefonata && (
+            <div className="messaggio-ok larga">
+              Telefonata terminata{telefonata.durata ? ` (${Math.floor(telefonata.durata / 60)}:${String(telefonata.durata % 60).padStart(2, "0")})` : ""}: scegli l'esito e registra.
+            </div>
+          )}
           <label>
             Esito
             <select required value={chiamata.esito_id} onChange={(e) => setChiamata({ ...chiamata, esito_id: e.target.value })}>

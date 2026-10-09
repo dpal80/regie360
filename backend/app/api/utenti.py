@@ -7,9 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.audit import registra
 from app.db import get_db
-from app.models import ORIGINE_AD, ORIGINE_LOCALE, RUOLI, Utente
+from app.models import ORIGINE_AD, ORIGINE_LOCALE, RUOLI, RUOLO_SUPERADMIN, Utente
 from app.config import get_settings
-from app.security import PASSWORD_MIN, hash_password, normalizza_username, solo_responsabile
+from app.security import (
+    PASSWORD_MIN,
+    hash_password,
+    normalizza_username,
+    solo_responsabile,
+    solo_superadmin,
+)
 
 router = APIRouter(prefix="/utenti", tags=["utenti"])
 
@@ -60,6 +66,14 @@ def _controlla_ruolo(ruolo: str | None) -> None:
         raise HTTPException(422, "Ruolo non valido")
 
 
+def _controlla_superadmin(io: Utente, utente: Utente | None, nuovo_ruolo: str | None) -> None:
+    """Solo un super-admin può nominare un super-admin o toccare l'utente di un altro super-admin."""
+    if io.superadmin:
+        return
+    if nuovo_ruolo == RUOLO_SUPERADMIN or (utente is not None and utente.superadmin):
+        raise HTTPException(403, "Operazione riservata al super-admin")
+
+
 def _admin_emergenza(utente: Utente) -> bool:
     return utente.origine == ORIGINE_LOCALE and utente.username == normalizza_username(
         get_settings().admin_username
@@ -86,6 +100,7 @@ def crea(
 ):
     """Abilita al CRM un utente di dominio (password di Windows) o crea un utente locale."""
     _controlla_ruolo(dati.ruolo)
+    _controlla_superadmin(io, None, dati.ruolo)
     if dati.origine not in (ORIGINE_AD, ORIGINE_LOCALE):
         raise HTTPException(422, "Tipo di accesso non valido")
     password_hash = None
@@ -125,6 +140,7 @@ def modifica(
     if utente is None:
         raise HTTPException(404, "Utente non trovato")
     _controlla_ruolo(dati.ruolo)
+    _controlla_superadmin(io, utente, dati.ruolo)
     if utente.id == io.id and (dati.attivo is False or (dati.ruolo and dati.ruolo != io.ruolo)):
         raise HTTPException(400, "Non puoi disattivare o cambiare ruolo a te stesso")
     if _admin_emergenza(utente) and (dati.attivo is False or (dati.ruolo and dati.ruolo != utente.ruolo)):
@@ -151,6 +167,7 @@ def sblocca(
     utente = db.get(Utente, utente_id)
     if utente is None:
         raise HTTPException(404, "Utente non trovato")
+    _controlla_superadmin(io, utente, None)
     utente.bloccato_fino = None
     utente.tentativi_falliti = 0
     registra(db, "utente_sbloccato", utente=io, oggetto=f"utente:{utente.id}", request=request)
@@ -164,9 +181,12 @@ def reimposta_password(
     dati: ResetPassword,
     request: Request,
     db: Session = Depends(get_db),
-    io: Utente = Depends(solo_responsabile),
+    io: Utente = Depends(solo_superadmin),
 ):
-    """Password provvisoria per un utente locale che l'ha dimenticata: la cambierà al prossimo accesso."""
+    """Password provvisoria per un utente locale che l'ha dimenticata: la cambierà al prossimo accesso.
+
+    Solo il super-admin. Per gli utenti di dominio non c'è nulla da reimpostare: la password è di Windows.
+    """
     utente = db.get(Utente, utente_id)
     if utente is None:
         raise HTTPException(404, "Utente non trovato")

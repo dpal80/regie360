@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.models import (
     CAMPAGNA_ATTIVA,
     CONTATTO_CHIUSO,
-    RUOLO_RESPONSABILE,
     Campagna,
     Cliente,
     Contatto,
@@ -84,18 +83,18 @@ def team_di(db: Session, utente: Utente) -> list[int]:
 
 def vede_campagna(db: Session, utente: Utente, campagna: Campagna) -> bool:
     """Il Responsabile vede tutte le campagne, l'operatore quelle attive dei suoi team."""
-    if utente.ruolo == RUOLO_RESPONSABILE:
+    if utente.responsabile:
         return True
     return campagna.stato == CAMPAGNA_ATTIVA and campagna.team_id in team_di(db, utente)
 
 
 def vede_contatto(utente: Utente, contatto: Contatto) -> bool:
     """L'operatore vede solo i contatti assegnati a lui."""
-    return utente.ruolo == RUOLO_RESPONSABILE or contatto.operatore_id == utente.id
+    return utente.responsabile or contatto.operatore_id == utente.id
 
 
 def vede_cliente(db: Session, utente: Utente, cliente_id: int) -> bool:
-    if utente.ruolo == RUOLO_RESPONSABILE:
+    if utente.responsabile:
         return True
     return bool(
         db.scalar(

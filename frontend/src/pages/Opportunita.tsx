@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, formatoDataOra, patch, query, type Pagina, type Voce } from "../api";
+import { api, eResponsabile, formatoDataOra, patch, query, type Pagina, type Voce } from "../api";
 import { useAuth } from "../auth";
 import Paginatore from "../components/Paginatore";
 
@@ -43,7 +43,7 @@ function perCampo(d: string | null): string {
 
 export default function OpportunitaPagina() {
   const { utente } = useAuth();
-  const responsabile = utente?.ruolo === "responsabile";
+  const responsabile = eResponsabile(utente);
   const [dati, setDati] = useState<Pagina<Opportunita> | null>(null);
   const [fasi, setFasi] = useState<Voce[]>([]);
   const [prodotti, setProdotti] = useState<Voce[]>([]);
