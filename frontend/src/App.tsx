@@ -17,9 +17,8 @@ import Campagne from "./pages/Campagne";
 import CampagnaDettaglio from "./pages/CampagnaDettaglio";
 import Team from "./pages/Team";
 import Elenchi from "./pages/Elenchi";
-import ActiveDirectory from "./pages/ActiveDirectory";
+import Impostazioni from "./pages/Impostazioni";
 import Telefono from "./pages/Telefono";
-import Microsoft365 from "./pages/Microsoft365";
 import { TelefonoProvider } from "./telefono";
 
 export default function App() {
@@ -59,8 +58,7 @@ export default function App() {
               <NavLink to="/importa">Importa dati</NavLink>
               <NavLink to="/utenti">Utenti</NavLink>
               <NavLink to="/elenchi">Elenchi</NavLink>
-              {superadmin && <NavLink to="/active-directory">Active Directory</NavLink>}
-              {superadmin && <NavLink to="/microsoft365">Microsoft 365</NavLink>}
+              {superadmin && <NavLink to="/impostazioni">Impostazioni</NavLink>}
               <NavLink to="/registro">Registro attività</NavLink>
             </>
           )}
@@ -86,8 +84,7 @@ export default function App() {
               <Route path="/campagne/:id" element={<CampagnaDettaglio />} />
               <Route path="/team" element={<Team />} />
               <Route path="/elenchi" element={<Elenchi />} />
-              {superadmin && <Route path="/active-directory" element={<ActiveDirectory />} />}
-              {superadmin && <Route path="/microsoft365" element={<Microsoft365 />} />}
+              {superadmin && <Route path="/impostazioni/*" element={<Impostazioni />} />}
               <Route path="/clienti" element={<Clienti />} />
               <Route path="/clienti/:id" element={<ClienteDettaglio />} />
               <Route path="/veicoli" element={<Veicoli />} />

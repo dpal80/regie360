@@ -70,7 +70,6 @@ export default function ActiveDirectory() {
 
   return (
     <>
-      <h1>Active Directory</h1>
       <p className="tenue">
         Qui colleghi il CRM al dominio Windows della sede. Il CRM chiede al server di dominio solo di verificare la
         password: chi può entrare e con quale ruolo lo decidi tu nella pagina Utenti.

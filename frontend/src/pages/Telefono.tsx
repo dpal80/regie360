@@ -1,29 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { api, cancella, eSuperadmin, post, put } from "../api";
+import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { cancella, eSuperadmin, post } from "../api";
 import { useAuth } from "../auth";
 import { useTelefono, type StatoTelefono } from "../telefono";
-
-type NethVoice = { attivo: boolean; cti_host: string; sip_host: string; sip_porta: string; certificato_ca: string };
-
-const VUOTA: NethVoice = { attivo: true, cti_host: "", sip_host: "", sip_porta: "", certificato_ca: "" };
 
 export default function Telefono() {
   const { utente } = useAuth();
   const superadmin = eSuperadmin(utente);
-  const { stato, ricarica } = useTelefono();
+  const { stato } = useTelefono();
   const [credenziali, setCredenziali] = useState({ username: utente?.username ?? "", password: "" });
-  const [config, setConfig] = useState<NethVoice>(VUOTA);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
   const [inCorso, setInCorso] = useState(false);
-
-  useEffect(() => {
-    if (!superadmin) return;
-    api<NethVoice>("/impostazioni/nethvoice")
-      // Finché non è mai stata configurata, la spunta "attiva" parte accesa.
-      .then((c) => setConfig(c.cti_host ? c : { ...c, attivo: true }))
-      .catch((e) => setErrore(e.message));
-  }, [superadmin]);
 
   async function esegui(f: () => Promise<void>) {
     setErrore("");
@@ -54,15 +42,6 @@ export default function Telefono() {
     });
   }
 
-  function salva(e: FormEvent) {
-    e.preventDefault();
-    esegui(async () => {
-      setConfig(await put<NethVoice>("/impostazioni/nethvoice", config));
-      await ricarica();
-      setAvviso("Impostazioni salvate. Ogni operatore collega il suo telefono da questa stessa pagina.");
-    });
-  }
-
   return (
     <>
       <h1>Telefono</h1>
@@ -73,7 +52,7 @@ export default function Telefono() {
         <h3>Il mio telefono</h3>
         {!stato?.attivo ? (
           <p className="tenue">
-            La telefonia non è ancora attiva{superadmin ? ": compila qui sotto il collegamento a NethVoice." : ": deve configurarla un super-admin."}
+            La telefonia non è ancora attiva{superadmin ? <>: imposta il collegamento in <Link to="/impostazioni/nethvoice">Impostazioni › NethVoice</Link>.</> : ": deve configurarla un super-admin."}
           </p>
         ) : stato.collegato ? (
           <>
@@ -96,36 +75,6 @@ export default function Telefono() {
         )}
       </section>
 
-      {superadmin && (
-        <form className="scheda modulo" onSubmit={salva}>
-          <h3 className="larga">Collegamento a NethVoice</h3>
-          <label>
-            Server CTI di NethVoice
-            <input required value={config.cti_host} onChange={(e) => setConfig({ ...config, cti_host: e.target.value })} placeholder="cti.regieauto.local" />
-          </label>
-          <label>
-            Server SIP (telefono web)
-            <input required value={config.sip_host} onChange={(e) => setConfig({ ...config, sip_host: e.target.value })} placeholder="voice.regieauto.local" />
-          </label>
-          <label>
-            Porta SIP
-            <input className="corto" required inputMode="numeric" pattern="\d+" value={config.sip_porta} onChange={(e) => setConfig({ ...config, sip_porta: e.target.value })} />
-          </label>
-          <label className="spunta">
-            <input type="checkbox" checked={config.attivo} onChange={(e) => setConfig({ ...config, attivo: e.target.checked })} />
-            Telefonia attiva
-          </label>
-          <label className="larga">
-            Certificato della CA interna (formato PEM, facoltativo)
-            <textarea rows={5} value={config.certificato_ca} onChange={(e) => setConfig({ ...config, certificato_ca: e.target.value })} placeholder={"-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----"} />
-          </label>
-          <p className="tenue larga">
-            Server e porta SIP sono quelli che usa la CTI web di NethVoice: li trovi nella configurazione del
-            centralino. Anche i PC degli operatori devono raggiungere questi indirizzi.
-          </p>
-          <div className="azioni larga"><button type="submit" className="primario" disabled={inCorso}>Salva</button></div>
-        </form>
-      )}
     </>
   );
 }

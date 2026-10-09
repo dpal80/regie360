@@ -163,3 +163,8 @@ button.chiama { margin-left: 0.75rem; padding: 0.2rem 0.7rem; }
 .etichette span { background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: 0.85rem; }
 button.pericolo:not(:disabled) { color: var(--rosso); }
 button.pericolo:hover:not(:disabled) { border-color: var(--rosso); }
+
+/* Impostazioni: schede */
+a.scheda-voce { padding: 0.45rem 0.9rem; border: 1px solid var(--bordo); border-radius: 6px; background: var(--superficie); color: var(--testo); }
+a.scheda-voce:hover { border-color: var(--accento); text-decoration: none; }
+a.scheda-voce.active { background: var(--accento); border-color: var(--accento); color: #fff; }

@@ -53,7 +53,6 @@ export default function Microsoft365() {
 
   return (
     <>
-      <h1>Microsoft 365</h1>
       <p className="tenue">
         Il CRM spedisce le e-mail attraverso un'app registrata nel vostro Microsoft 365 (Entra ID), dalla casella che
         scegli come mittente. All'app serve il permesso applicativo <strong>Mail.Send</strong> con il consenso

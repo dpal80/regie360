@@ -62,7 +62,7 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
 ## Login
 
 - **Utenti di dominio**: entrano con nome utente e password di Windows. Il backend verifica la password
-  sull'Active Directory via LDAPS. Il collegamento si imposta dalla pagina **Active Directory**
+  sull'Active Directory via LDAPS. Il collegamento si imposta in **Impostazioni › Active Directory**
   (server, dominio, porta, certificato della CA interna), dove si può anche provare con un utente di
   dominio prima di salvare. Con la **Base DN** si sceglie da quale ramo del dominio sfogliare gli utenti:
   nella pagina **Utenti**, «Sfoglia utenti di dominio» mostra quelli attivi sotto la Base DN e permette
@@ -102,6 +102,12 @@ Regole: ogni riga è un veicolo; il cliente si riconosce dal **Cod. Cliente** (l
 cliente diventano un cliente con più veicoli); il veicolo dal telaio, poi dalla targa; il passaggio
 in officina dal numero O.R. Una cella vuota non cancella un dato già presente.
 
+## Impostazioni
+
+La sezione **Impostazioni**, riservata ai super-admin, raccoglie i collegamenti del CRM ai sistemi
+dell'azienda: Active Directory, Microsoft 365 e NethVoice. Tutto si imposta da qui, senza toccare file
+sul server.
+
 ## Campagne e chiamate
 
 1. **Team**: il Responsabile raggruppa gli operatori in team; una persona può stare in più team.
@@ -126,9 +132,9 @@ Il telefono è [Phone Island](https://github.com/nethesis/phone-island) di Nethe
 dentro il CRM: una copia a versione fissa viene messa nell'immagine del proxy durante la build (in sede
 non serve internet). È software GPL-3.0, incluso senza modifiche.
 
-1. Un super-admin compila nella pagina **Telefono** il server CTI di NethVoice, il server e la porta SIP
+1. Un super-admin compila in **Impostazioni › NethVoice** il server CTI di NethVoice, il server e la porta SIP
    e, se serve, il certificato della CA interna.
-2. Ogni operatore collega il suo telefono dalla stessa pagina con le credenziali di NethVoice, che non
+2. Ogni operatore collega il suo telefono dalla pagina **Telefono** con le credenziali di NethVoice, che non
    vengono salvate. Agli utenti di dominio il CRM lo collega da solo al primo accesso. Si salva, cifrato,
    solo il token di Phone Island con l'interno web: NethVoice ne tiene uno per utente e uno nuovo revoca
    il precedente, quindi il CRM lo riusa finché non si preme «Scollega».
@@ -142,8 +148,8 @@ NethVoice per l'operatore. I PC devono raggiungere NethVoice direttamente: per q
 
 ## E-mail con Microsoft 365
 
-Il CRM può spedire e-mail attraverso un'app registrata in Entra ID (Microsoft Graph), dalla pagina
-**Microsoft 365** riservata ai super-admin: ID tenant, ID applicazione, segreto (salvato cifrato) e casella
+Il CRM può spedire e-mail attraverso un'app registrata in Entra ID (Microsoft Graph), da
+**Impostazioni › Microsoft 365**, riservata ai super-admin: ID tenant, ID applicazione, segreto (salvato cifrato) e casella
 mittente, con un pulsante per l'e-mail di prova. All'app serve il permesso applicativo `Mail.Send` con
 consenso dell'amministratore; conviene limitarla alla sola casella mittente con un criterio di accesso
 alle applicazioni di Exchange Online. Per spedire, il server del CRM deve raggiungere
