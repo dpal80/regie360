@@ -18,6 +18,8 @@ from app.models import ORIGINE_AD, ORIGINE_LOCALE, RUOLO_RESPONSABILE, Utente
 log = logging.getLogger(__name__)
 
 COOKIE_NAME = "crm_sessione"
+PERCORSI_CAMBIO_PASSWORD = {"/api/auth/me", "/api/auth/password", "/api/auth/logout"}
+PASSWORD_MIN = 10
 _hasher = PasswordHasher()
 
 
@@ -168,6 +170,10 @@ def utente_corrente(
     utente = db.get(Utente, int(payload["sub"]))
     if utente is None or not utente.attivo:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Accesso richiesto")
+
+    # Finché non cambia la password, l'utente può solo cambiarla (o uscire).
+    if utente.deve_cambiare_password and request.url.path not in PERCORSI_CAMBIO_PASSWORD:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Devi prima cambiare la password")
 
     # Rinnovo automatico quando è passata metà della durata della sessione.
     restante = payload["exp"] - datetime.now(UTC).timestamp()

@@ -71,6 +71,7 @@ export type Utente = {
   ruolo: "responsabile" | "operatore";
   origine: "ad" | "locale";
   interno: string | null;
+  deve_cambiare_password: boolean;
 };
 
 export type Pagina<T> = { totale: number; pagina: number; per_pagina: number; elementi: T[] };

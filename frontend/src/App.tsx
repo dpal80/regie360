@@ -8,12 +8,20 @@ import Veicoli from "./pages/Veicoli";
 import Importa from "./pages/Importa";
 import Utenti from "./pages/Utenti";
 import Registro from "./pages/Registro";
+import CambioPassword from "./pages/CambioPassword";
 
 export default function App() {
   const { utente, caricamento, logout } = useAuth();
 
   if (caricamento) return <div className="centro">Caricamento…</div>;
   if (!utente) return <Login />;
+  if (utente.deve_cambiare_password) {
+    return (
+      <div className="login">
+        <CambioPassword obbligatorio />
+      </div>
+    );
+  }
 
   const responsabile = utente.ruolo === "responsabile";
 
@@ -38,12 +46,14 @@ export default function App() {
         <div className="chi">
           <div>{utente.nome}</div>
           <small>{responsabile ? "Responsabile" : "Operatore"}</small>
+          {utente.origine === "locale" && <NavLink to="/password" className="link-chiaro">Cambia password</NavLink>}
           <button className="link" onClick={logout}>Esci</button>
         </div>
       </aside>
       <main className="contenuto">
         <Routes>
           <Route path="/" element={<Home />} />
+          {utente.origine === "locale" && <Route path="/password" element={<CambioPassword />} />}
           {responsabile && (
             <>
               <Route path="/clienti" element={<Clienti />} />

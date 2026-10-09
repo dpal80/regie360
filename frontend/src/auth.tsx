@@ -6,6 +6,7 @@ type Auth = {
   caricamento: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  ricarica: () => Promise<void>;
 };
 
 const Contesto = createContext<Auth | null>(null);
@@ -33,7 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUtente(null);
   }, []);
 
-  return <Contesto.Provider value={{ utente, caricamento, login, logout }}>{children}</Contesto.Provider>;
+  const ricarica = useCallback(async () => {
+    setUtente(await api<Utente>("/auth/me"));
+  }, []);
+
+  return <Contesto.Provider value={{ utente, caricamento, login, logout, ricarica }}>{children}</Contesto.Provider>;
 }
 
 export function useAuth(): Auth {

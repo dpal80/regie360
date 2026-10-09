@@ -36,6 +36,8 @@ class Utente(Base):
     ruolo: Mapped[str] = mapped_column(String(20))
     origine: Mapped[str] = mapped_column(String(10), default=ORIGINE_AD)
     password_hash: Mapped[str | None] = mapped_column(String(255))
+    # Utenti locali: al primo accesso (o dopo un reset) devono scegliere una nuova password.
+    deve_cambiare_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     interno: Mapped[str | None] = mapped_column(String(20))
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
     tentativi_falliti: Mapped[int] = mapped_column(Integer, default=0)

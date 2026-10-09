@@ -6,6 +6,7 @@ from app.audit import registra
 from app.db import get_db
 from app.models import ORIGINE_LOCALE, Utente
 from app.security import (
+    PASSWORD_MIN,
     ADNonRaggiungibile,
     autentica,
     cancella_cookie,
@@ -32,13 +33,14 @@ class UtenteOut(BaseModel):
     ruolo: str
     origine: str
     interno: str | None
+    deve_cambiare_password: bool
 
     model_config = {"from_attributes": True}
 
 
 class CambioPasswordIn(BaseModel):
     attuale: str
-    nuova: str = Field(min_length=12, max_length=256)
+    nuova: str = Field(min_length=PASSWORD_MIN, max_length=256)
 
 
 @router.post("/login", response_model=UtenteOut)
@@ -80,11 +82,14 @@ def cambia_password(
     utente: Utente = Depends(utente_corrente),
     db: Session = Depends(get_db),
 ):
-    """Solo per l'admin locale: gli utenti di dominio cambiano la password in Windows."""
+    """Solo per gli utenti locali: quelli di dominio cambiano la password in Windows."""
     if utente.origine != ORIGINE_LOCALE:
         raise HTTPException(400, "La password degli utenti di dominio si cambia da Windows")
     if not verifica_password(utente.password_hash, dati.attuale):
         raise HTTPException(400, "La password attuale non è corretta")
+    if dati.nuova == dati.attuale:
+        raise HTTPException(400, "La nuova password deve essere diversa da quella attuale")
     utente.password_hash = hash_password(dati.nuova)
+    utente.deve_cambiare_password = False
     registra(db, "cambio_password", utente=utente, request=request)
     db.commit()

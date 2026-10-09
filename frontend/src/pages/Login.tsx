@@ -28,7 +28,7 @@ export default function Login() {
         <h1>
           CRM <strong>REGIE AUTO</strong>
         </h1>
-        <p className="tenue">Accedi con le credenziali di Windows</p>
+        <p className="tenue">Accedi con le credenziali di Windows o con quelle che ti ha dato il responsabile</p>
         <label>
           Nome utente
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />

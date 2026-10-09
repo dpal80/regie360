@@ -75,3 +75,46 @@ def test_serve_intestazione_csrf(client):
 def test_admin_non_si_disattiva(admin):
     me = admin.get("/api/auth/me").json()
     assert admin.patch(f"/api/utenti/{me['id']}", json={"attivo": False}).status_code == 400
+
+
+def test_utente_locale_cambia_password_al_primo_accesso(admin):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    r = admin.post("/api/utenti", json={"username": "giulia", "nome": "Giulia", "ruolo": "operatore",
+                                        "origine": "locale", "password": "provvisoria-1"})
+    assert r.status_code == 201, r.text
+    assert r.json()["deve_cambiare_password"] is True
+    uid = r.json()["id"]
+
+    with TestClient(app, headers={"X-Requested-With": "crm"}) as op:
+        r = op.post("/api/auth/login", json={"username": "giulia", "password": "provvisoria-1"})
+        assert r.status_code == 200 and r.json()["deve_cambiare_password"] is True
+        # finché non cambia la password non può fare altro
+        assert op.get("/api/riepilogo").status_code == 403
+        assert op.post("/api/auth/password", json={"attuale": "provvisoria-1", "nuova": "corta"}).status_code == 422
+        assert op.post("/api/auth/password", json={"attuale": "provvisoria-1", "nuova": "nuova-password-1"}).status_code == 204
+        assert op.get("/api/auth/me").json()["deve_cambiare_password"] is False
+
+        # il Responsabile reimposta una password provvisoria
+        assert admin.post(f"/api/utenti/{uid}/password", json={"password": "altra-provvisoria"}).status_code == 200
+        assert op.post("/api/auth/login", json={"username": "giulia", "password": "nuova-password-1"}).status_code == 401
+        r = op.post("/api/auth/login", json={"username": "giulia", "password": "altra-provvisoria"})
+        assert r.json()["deve_cambiare_password"] is True
+
+
+def test_utente_locale_senza_password_rifiutato(admin):
+    r = admin.post("/api/utenti", json={"username": "x", "nome": "X", "ruolo": "operatore", "origine": "locale"})
+    assert r.status_code == 422
+
+
+def test_reset_password_solo_utenti_locali(admin):
+    r = admin.post("/api/utenti", json={"username": "dom", "nome": "Dom", "ruolo": "operatore"})
+    assert admin.post(f"/api/utenti/{r.json()['id']}/password", json={"password": "qualcosa-di-lungo"}).status_code == 400
+
+
+def test_responsabile_locale_si_puo_disattivare(admin):
+    r = admin.post("/api/utenti", json={"username": "capo", "nome": "Capo", "ruolo": "responsabile",
+                                        "origine": "locale", "password": "provvisoria-1"})
+    assert admin.patch(f"/api/utenti/{r.json()['id']}", json={"attivo": False}).status_code == 200

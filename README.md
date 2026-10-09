@@ -44,6 +44,9 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
   sull'Active Directory via LDAPS (`AD_SERVER`, `AD_DOMAIN`, eventualmente `AD_CA_FILE`).
   L'AD controlla solo la password: chi può entrare e con quale ruolo lo decide il Responsabile nella
   pagina **Utenti**. Un utente AD non aggiunto al CRM non entra.
+- **Utenti locali**: il Responsabile può creare anche utenti con una password del CRM (per chi non ha un
+  account di dominio). Riceve una password provvisoria e la cambia al primo accesso; se la dimentica, il
+  Responsabile gliene assegna una nuova. Minimo 10 caratteri, salvata con Argon2.
 - **Amministratore di emergenza**: utente locale (`ADMIN_USERNAME` / `ADMIN_PASSWORD`, password salvata
   con Argon2), creato al primo avvio. Serve quando l'AD non risponde.
 - Sessione in cookie HttpOnly/Secure/SameSite=Strict, durata `JWT_MINUTI` con rinnovo automatico.
