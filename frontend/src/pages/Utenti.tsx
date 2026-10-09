@@ -1,22 +1,27 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, formatoDataOra, patch, post } from "../api";
+import { api, eSuperadmin, formatoDataOra, patch, post, RUOLI, type Ruolo } from "../api";
 import { useAuth } from "../auth";
 
 type Utente = {
   id: number;
   username: string;
   nome: string;
-  ruolo: "responsabile" | "operatore";
+  ruolo: Ruolo;
   origine: "ad" | "locale";
   interno: string | null;
+  email: string | null;
   attivo: boolean;
+  totp_attivo: boolean;
   deve_cambiare_password: boolean;
   admin_emergenza: boolean;
   bloccato_fino: string | null;
   ultimo_accesso: string | null;
 };
 
-const VUOTO = { username: "", nome: "", ruolo: "operatore", interno: "", origine: "ad", password: "" };
+type UtenteAD = { username: string; nome: string; email: string | null; reparto: string | null; gia_nel_crm: boolean };
+type Sfoglia = { base_dn: string; utenti: UtenteAD[]; troppi: boolean };
+
+const VUOTO = { username: "", nome: "", ruolo: "operatore", interno: "", email: "", origine: "ad", password: "", invia: false };
 
 // Password provvisoria leggibile (senza caratteri che si confondono come 0/O o 1/l).
 function generaPassword(): string {
@@ -31,10 +36,49 @@ export default function Utenti() {
   const [nuovo, setNuovo] = useState(VUOTO);
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
+  const superadmin = eSuperadmin(io);
+  // Se la posta è configurata, le credenziali possono arrivare all'utente per e-mail.
+  const [postaAttiva, setPostaAttiva] = useState(false);
+  // Solo un super-admin nomina altri super-admin.
+  const opzioniRuolo = (
+    <>
+      <option value="operatore">Operatore</option>
+      <option value="responsabile">Responsabile</option>
+      {superadmin && <option value="superadmin">Super-admin</option>}
+    </>
+  );
+  // Le credenziali di dominio per sfogliare restano solo in questa pagina: il CRM non le salva.
+  const [sfoglia, setSfoglia] = useState({ aperto: false, username: "", password: "", q: "" });
+  const [trovati, setTrovati] = useState<Sfoglia | null>(null);
+  const [ruoli, setRuoli] = useState<Record<string, string>>({});
+  const [cercando, setCercando] = useState(false);
+
+  async function cercaInAD(e: FormEvent) {
+    e.preventDefault();
+    setErrore("");
+    setCercando(true);
+    try {
+      setTrovati(await post<Sfoglia>("/impostazioni/ad/utenti", { username: sfoglia.username, password: sfoglia.password, q: sfoglia.q }));
+    } catch (err) {
+      setTrovati(null);
+      setErrore((err as Error).message);
+    } finally {
+      setCercando(false);
+    }
+  }
+
+  function aggiungiDaAD(u: UtenteAD) {
+    azione(async () => {
+      await post("/utenti", { username: u.username, nome: u.nome, ruolo: ruoli[u.username] ?? "operatore", origine: "ad" });
+      setTrovati((t) => t && { ...t, utenti: t.utenti.map((x) => (x.username === u.username ? { ...x, gia_nel_crm: true } : x)) });
+      setAvviso(`${u.nome} ora può entrare nel CRM con le credenziali di Windows.`);
+    });
+  }
 
   const carica = () => api<Utente[]>("/utenti").then(setUtenti).catch((e) => setErrore(e.message));
   useEffect(() => {
     carica();
+    api<{ attivo: boolean }>("/impostazioni/microsoft365/stato").then((s) => setPostaAttiva(s.attivo)).catch(() => undefined);
   }, []);
 
   async function azione(f: () => Promise<unknown>) {
@@ -52,9 +96,16 @@ export default function Utenti() {
     e.preventDefault();
     azione(async () => {
       const locale = nuovo.origine === "locale";
-      await post("/utenti", { ...nuovo, interno: nuovo.interno || null, password: locale ? nuovo.password : null });
+      const perEmail = locale && postaAttiva && nuovo.invia && nuovo.email !== "";
+      await post("/utenti", {
+        username: nuovo.username, nome: nuovo.nome, ruolo: nuovo.ruolo, origine: nuovo.origine,
+        interno: nuovo.interno || null, email: nuovo.email || null,
+        password: locale && !perEmail ? nuovo.password : null, invia_credenziali: perEmail,
+      });
       setNuovo(VUOTO);
-      if (locale) {
+      if (perEmail) {
+        setAvviso(`Utente ${nuovo.username} creato: le credenziali sono partite per e-mail a ${nuovo.email}.`);
+      } else if (locale) {
         setAvviso(`Utente ${nuovo.username} creato. Comunicagli la password provvisoria «${nuovo.password}»: la cambierà al primo accesso.`);
       }
     });
@@ -68,6 +119,9 @@ export default function Utenti() {
       <p className="tenue">
         Gli utenti di dominio entrano con le credenziali di Windows (Active Directory); gli utenti locali con una password
         del CRM, che scelgono al primo accesso. Qui decidi chi può usare il CRM e con quale ruolo.
+        {superadmin
+          ? " Come super-admin puoi anche assegnare una nuova password agli utenti locali; a quelli di dominio puoi solo assegnare il ruolo, perché la password è quella di Windows."
+          : " Le password degli utenti locali e la nomina dei super-admin spettano a un super-admin."}
       </p>
       {errore && <div className="errore">{errore}</div>}
       {avviso && <div className="messaggio-ok">{avviso}</div>}
@@ -87,12 +141,18 @@ export default function Utenti() {
         <label>
           Ruolo
           <select value={nuovo.ruolo} onChange={(e) => setNuovo({ ...nuovo, ruolo: e.target.value })}>
-            <option value="operatore">Operatore</option>
-            <option value="responsabile">Responsabile</option>
+            {opzioniRuolo}
           </select>
         </label>
         <label>Interno telefonico<input value={nuovo.interno} onChange={(e) => setNuovo({ ...nuovo, interno: e.target.value })} /></label>
-        {nuovo.origine === "locale" && (
+        <label>E-mail<input type="email" value={nuovo.email} onChange={(e) => setNuovo({ ...nuovo, email: e.target.value })} /></label>
+        {nuovo.origine === "locale" && postaAttiva && (
+          <label className="spunta">
+            <input type="checkbox" checked={nuovo.invia} disabled={!nuovo.email} onChange={(e) => setNuovo({ ...nuovo, invia: e.target.checked })} />
+            Invia le credenziali per e-mail
+          </label>
+        )}
+        {nuovo.origine === "locale" && !(postaAttiva && nuovo.invia && nuovo.email) && (
           <label>
             Password provvisoria
             <input required minLength={10} value={nuovo.password} onChange={(e) => setNuovo({ ...nuovo, password: e.target.value })} />
@@ -100,15 +160,73 @@ export default function Utenti() {
         )}
         <div className="azioni"><button className="primario" type="submit">Aggiungi utente</button></div>
       </form>
+      <section className="scheda">
+        <div className="testata">
+          <h3>Scegli dall'Active Directory</h3>
+          <button onClick={() => setSfoglia({ ...sfoglia, aperto: !sfoglia.aperto })}>{sfoglia.aperto ? "Chiudi" : "Sfoglia utenti di dominio"}</button>
+        </div>
+        {sfoglia.aperto && (
+          <>
+            <p className="tenue">
+              Per leggere l'elenco il CRM entra nel dominio con le tue credenziali di Windows, che non vengono salvate.
+              Si vedono gli utenti attivi sotto la Base DN impostata nella pagina Active Directory.
+            </p>
+            <form className="filtri" onSubmit={cercaInAD}>
+              <label>Il tuo utente di dominio<input required value={sfoglia.username} onChange={(e) => setSfoglia({ ...sfoglia, username: e.target.value })} autoComplete="off" /></label>
+              <label>Password<input required type="password" value={sfoglia.password} onChange={(e) => setSfoglia({ ...sfoglia, password: e.target.value })} autoComplete="off" /></label>
+              <label>Cerca (facoltativo)<input value={sfoglia.q} onChange={(e) => setSfoglia({ ...sfoglia, q: e.target.value })} placeholder="Nome, utente o e-mail" /></label>
+              <div className="azioni"><button className="primario" type="submit" disabled={cercando}>{cercando ? "Cerco…" : "Mostra utenti"}</button></div>
+            </form>
+            {trovati && (
+              <>
+                <p className="tenue">
+                  {trovati.utenti.length} utenti in {trovati.base_dn}
+                  {trovati.troppi ? ": l'elenco è stato tagliato, restringi la ricerca o la Base DN." : "."}
+                </p>
+                <table>
+                  <thead><tr><th>Nome</th><th>Utente</th><th>E-mail</th><th>Reparto</th><th>Ruolo</th><th></th></tr></thead>
+                  <tbody>
+                    {trovati.utenti.map((u) => (
+                      <tr key={u.username} className={u.gia_nel_crm ? "spento" : ""}>
+                        <td>{u.nome}</td>
+                        <td>{u.username}</td>
+                        <td>{u.email}</td>
+                        <td>{u.reparto}</td>
+                        <td>
+                          {!u.gia_nel_crm && (
+                            <select value={ruoli[u.username] ?? "operatore"} onChange={(e) => setRuoli({ ...ruoli, [u.username]: e.target.value })}>
+                              {opzioniRuolo}
+                            </select>
+                          )}
+                        </td>
+                        <td>
+                          <div className="azioni-riga">
+                            {u.gia_nel_crm ? "Già nel CRM" : <button onClick={() => aggiungiDaAD(u)}>Aggiungi</button>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {trovati.utenti.length === 0 && <tr><td colSpan={6} className="vuoto">Nessun utente trovato</td></tr>}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        )}
+      </section>
       <table>
         <thead>
-          <tr><th>Utente</th><th>Accesso</th><th>Nome</th><th>Ruolo</th><th>Interno</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr>
+          <tr><th>Utente</th><th>Accesso</th><th>Nome</th><th>Ruolo</th><th>Interno</th><th>E-mail</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr>
         </thead>
         <tbody>
           {utenti.map((u) => {
             const ioStesso = u.id === io?.id;
             const locale = u.origine === "locale";
             const adminEmergenza = u.admin_emergenza;
+            // Un Responsabile non modifica l'utente di un super-admin.
+            // L'amministratore globale non lo modifica nessuno.
+            const globale = u.ruolo === "admin_globale";
+            const protetto = globale || (u.ruolo === "superadmin" && !superadmin);
             return (
               <tr key={u.id} className={u.attivo ? "" : "spento"}>
                 <td>{u.username}</td>
@@ -117,30 +235,49 @@ export default function Utenti() {
                 <td>
                   <select
                     value={u.ruolo}
-                    disabled={ioStesso || adminEmergenza}
+                    disabled={ioStesso || adminEmergenza || protetto}
                     onChange={(e) => azione(() => patch(`/utenti/${u.id}`, { ruolo: e.target.value }))}
                   >
-                    <option value="operatore">Operatore</option>
-                    <option value="responsabile">Responsabile</option>
+                    {opzioniRuolo}
+                    {protetto && <option value={u.ruolo}>{RUOLI[u.ruolo]}</option>}
                   </select>
                 </td>
                 <td>
                   <input
                     className="corto"
+                    disabled={protetto}
                     defaultValue={u.interno ?? ""}
                     onBlur={(e) => e.target.value !== (u.interno ?? "") && azione(() => patch(`/utenti/${u.id}`, { interno: e.target.value }))}
                   />
                 </td>
+                <td>
+                  {superadmin && !globale ? (
+                    <input
+                      type="email"
+                      defaultValue={u.email ?? ""}
+                      onBlur={(e) => e.target.value !== (u.email ?? "") && azione(() => patch(`/utenti/${u.id}`, { email: e.target.value }))}
+                    />
+                  ) : u.email}
+                </td>
                 <td>{formatoDataOra(u.ultimo_accesso)}</td>
                 <td>
+                  {u.totp_attivo && <span className="etichetta-2fa" title="Verifica in due passaggi attiva">2FA</span>}{" "}
                   {!u.attivo ? "Disattivato" : bloccato(u) ? "Bloccato" : u.deve_cambiare_password ? "Primo accesso" : "Attivo"}
                 </td>
                 <td>
                   <div className="azioni-riga">
-                  {bloccato(u) && <button onClick={() => azione(() => post(`/utenti/${u.id}/sblocca`))}>Sblocca</button>}
-                  {locale && !ioStesso && (
+                  {bloccato(u) && !protetto && <button onClick={() => azione(() => post(`/utenti/${u.id}/sblocca`))}>Sblocca</button>}
+                  {locale && !ioStesso && superadmin && !globale && (
                     <button
                       onClick={() => {
+                        if (postaAttiva && u.email) {
+                          if (!confirm(`Mandare a ${u.email} una nuova password provvisoria per ${u.username}?`)) return;
+                          azione(async () => {
+                            await post(`/utenti/${u.id}/password`, { invia: true });
+                            setAvviso(`Nuova password provvisoria spedita a ${u.email}. ${u.username} la cambierà al prossimo accesso.`);
+                          });
+                          return;
+                        }
                         const password = generaPassword();
                         azione(async () => {
                           await post(`/utenti/${u.id}/password`, { password });
@@ -151,7 +288,15 @@ export default function Utenti() {
                       Nuova password
                     </button>
                   )}
-                  {!ioStesso && !adminEmergenza && (
+                  {u.totp_attivo && superadmin && !globale && !ioStesso && (
+                    <button
+                      title="Per chi ha perso il telefono: toglie la verifica in due passaggi"
+                      onClick={() => confirm(`Togliere la verifica in due passaggi a ${u.username}?`) && azione(() => post(`/utenti/${u.id}/2fa/azzera`))}
+                    >
+                      Azzera 2FA
+                    </button>
+                  )}
+                  {!ioStesso && !adminEmergenza && !protetto && (
                     <button onClick={() => azione(() => patch(`/utenti/${u.id}`, { attivo: !u.attivo }))}>
                       {u.attivo ? "Disattiva" : "Riattiva"}
                     </button>

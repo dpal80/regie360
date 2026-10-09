@@ -127,3 +127,52 @@ a.tessera:hover { border-color: var(--accento); text-decoration: none; }
 
 .messaggio-ok { background: #ecfdf3; color: #067647; padding: 0.6rem 0.8rem; border-radius: 6px; margin: 0.75rem 0; }
 .password { width: min(380px, 100%); display: flex; flex-direction: column; gap: 1rem; }
+
+/* Fase 2: campagne, chiamate, opportunità, impostazioni */
+textarea { font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--bordo); border-radius: 6px; resize: vertical; }
+textarea:focus { outline: 2px solid var(--accento); outline-offset: -1px; }
+.testata { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.testata h1, .testata h3 { margin-bottom: 0; }
+.modulo { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem 1rem; align-items: end; }
+.modulo .larga { grid-column: 1 / -1; }
+.modulo h2.larga, .modulo h3.larga { margin: 0.5rem 0 0; }
+.modulo p.larga { margin: 0; }
+.modulo .errore, .modulo .messaggio-ok { margin: 0; }
+.filtri .largo { flex: 1; min-width: 16rem; }
+label.spunta { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 1rem; color: inherit; }
+.spunte { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin: 0.75rem 0; }
+.schede-menu { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.scheda.spenta { opacity: 0.6; }
+.scheda.campagna { min-width: 16rem; margin-bottom: 0; }
+.scheda.campagna p { margin: 0 0 0.6rem; }
+.colonne { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 0 1rem; }
+.riga-storia { margin: 0; padding: 0.45rem 0; border-bottom: 1px solid var(--bordo); }
+.riga-storia:last-child { border-bottom: none; }
+a.telefono { font-size: 1.15rem; font-weight: 600; }
+td.scaduto { color: var(--rosso); font-weight: 600; }
+input.ampio { width: 100%; min-width: 16rem; }
+
+/* Fase 3: telefonia */
+button.chiama { margin-left: 0.75rem; padding: 0.2rem 0.7rem; }
+.chiamata-in-arrivo { position: fixed; right: 1rem; bottom: 1rem; z-index: 50; display: flex; flex-direction: column; gap: 0.4rem; background: var(--superficie); border: 2px solid var(--accento); border-radius: 10px; padding: 0.9rem 1rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); max-width: 22rem; }
+.chiamata-in-arrivo button { align-self: flex-end; }
+
+/* Team */
+.elenco-persone { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.4rem 1rem; max-height: 18rem; overflow: auto; margin: 0.75rem 0; padding: 0.75rem; border: 1px solid var(--bordo); border-radius: 6px; }
+.etichette { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.etichette span { background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: 0.85rem; }
+button.pericolo:not(:disabled) { color: var(--rosso); }
+button.pericolo:hover:not(:disabled) { border-color: var(--rosso); }
+
+/* Impostazioni: schede */
+a.scheda-voce { padding: 0.45rem 0.9rem; border: 1px solid var(--bordo); border-radius: 6px; background: var(--superficie); color: var(--testo); }
+a.scheda-voce:hover { border-color: var(--accento); text-decoration: none; }
+a.scheda-voce.active { background: var(--accento); border-color: var(--accento); color: #fff; }
+
+/* Account, 2FA, accesso */
+.qr { width: 13rem; background: #fff; padding: 0.25rem; border: 1px solid var(--bordo); border-radius: 6px; }
+.qr svg { width: 100%; height: auto; display: block; }
+.consiglio { background: var(--arancio-chiaro); color: var(--arancio); padding: 0.6rem 0.8rem; border-radius: 6px; }
+.etichetta-2fa { background: #ecfdf3; color: #067647; border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.8rem; font-weight: 600; }
+button.link.scuro { color: var(--accento); text-align: center; }
+.scheda.password { margin-bottom: 1rem; }
