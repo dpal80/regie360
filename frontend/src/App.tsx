@@ -9,6 +9,14 @@ import Importa from "./pages/Importa";
 import Utenti from "./pages/Utenti";
 import Registro from "./pages/Registro";
 import CambioPassword from "./pages/CambioPassword";
+import Chiamate from "./pages/Chiamate";
+import Contatto from "./pages/Contatto";
+import Opportunita from "./pages/Opportunita";
+import Campagne from "./pages/Campagne";
+import CampagnaDettaglio from "./pages/CampagnaDettaglio";
+import Team from "./pages/Team";
+import Elenchi from "./pages/Elenchi";
+import ActiveDirectory from "./pages/ActiveDirectory";
 
 export default function App() {
   const { utente, caricamento, logout } = useAuth();
@@ -33,12 +41,18 @@ export default function App() {
         </div>
         <nav>
           <NavLink to="/" end>Home</NavLink>
+          <NavLink to="/chiamate">Le mie chiamate</NavLink>
+          <NavLink to="/opportunita">Opportunità</NavLink>
           {responsabile && (
             <>
+              <NavLink to="/campagne">Campagne</NavLink>
+              <NavLink to="/team">Team</NavLink>
               <NavLink to="/clienti">Clienti</NavLink>
               <NavLink to="/veicoli">Veicoli</NavLink>
               <NavLink to="/importa">Importa dati</NavLink>
               <NavLink to="/utenti">Utenti</NavLink>
+              <NavLink to="/elenchi">Elenchi</NavLink>
+              <NavLink to="/active-directory">Active Directory</NavLink>
               <NavLink to="/registro">Registro attività</NavLink>
             </>
           )}
@@ -54,8 +68,16 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           {utente.origine === "locale" && <Route path="/password" element={<CambioPassword />} />}
+          <Route path="/chiamate" element={<Chiamate />} />
+          <Route path="/contatti/:id" element={<Contatto />} />
+          <Route path="/opportunita" element={<Opportunita />} />
           {responsabile && (
             <>
+              <Route path="/campagne" element={<Campagne />} />
+              <Route path="/campagne/:id" element={<CampagnaDettaglio />} />
+              <Route path="/team" element={<Team />} />
+              <Route path="/elenchi" element={<Elenchi />} />
+              <Route path="/active-directory" element={<ActiveDirectory />} />
               <Route path="/clienti" element={<Clienti />} />
               <Route path="/clienti/:id" element={<ClienteDettaglio />} />
               <Route path="/veicoli" element={<Veicoli />} />

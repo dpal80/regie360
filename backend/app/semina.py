@@ -9,10 +9,9 @@ import sys
 
 from sqlalchemy.dialects.postgresql import insert
 
-from app.config import get_settings
 from app.db import SessionLocal
 from app.models import ORIGINE_LOCALE, RUOLO_OPERATORE, RUOLO_RESPONSABILE, Utente
-from app.security import hash_password, normalizza_username
+from app.security import config_ad, hash_password, normalizza_username
 
 # (username, nome, ruolo, interno, password)
 UTENTI_DI_ESEMPIO = [
@@ -53,7 +52,7 @@ def semina_utenti() -> list[str]:
 
 
 if __name__ == "__main__":
-    if get_settings().ad_server:
+    if config_ad().server:
         sys.exit("Semina annullata: con l'Active Directory configurato questa non è un'installazione di prova.")
     creati = semina_utenti()
     print("Utenti di esempio creati:", ", ".join(creati) if creati else "nessuno (c'erano già)")

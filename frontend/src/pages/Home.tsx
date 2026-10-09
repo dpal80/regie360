@@ -37,7 +37,7 @@ export default function Home() {
           )}
         </>
       ) : (
-        <p className="tenue">Le liste di chiamata arriveranno con la prossima versione del CRM.</p>
+        <p>Le campagne dei tuoi team e i contatti da chiamare sono in <Link to="/chiamate">Le mie chiamate</Link>.</p>
       )}
     </>
   );

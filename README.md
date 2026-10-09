@@ -5,8 +5,14 @@
 Regie360 è il CRM web per le chiamate di ricontatto dei clienti dell'officina e concessionaria REGIE AUTO.
 Gira tutto in locale con Docker Compose: nessun servizio cloud esterno.
 
-Questa è la **fase 1 (base)** del documento di architettura: login, utenti e ruoli, import
-del file Excel con abbinamento delle colonne, anagrafica clienti e veicoli, registro attività.
+Il CRM copre le prime due fasi del documento di architettura:
+
+- **fase 1 (base)**: login, utenti e ruoli, import del file Excel con abbinamento delle colonne,
+  anagrafica clienti e veicoli, registro attività;
+- **fase 2 (chiamate)**: team, campagne con filtri, coda delle chiamate, esiti, note e opportunità.
+
+La telefonia (Phone Island) arriva con la fase 3: per ora l'operatore chiama dal suo telefono e
+registra a mano l'esito.
 
 ## Cosa c'è dentro
 
@@ -54,7 +60,10 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
 ## Login
 
 - **Utenti di dominio**: entrano con nome utente e password di Windows. Il backend verifica la password
-  sull'Active Directory via LDAPS (`AD_SERVER`, `AD_DOMAIN`, eventualmente `AD_CA_FILE`).
+  sull'Active Directory via LDAPS. Il collegamento si imposta dalla pagina **Active Directory**
+  (server, dominio, porta, certificato della CA interna), dove si può anche provare con un utente di
+  dominio prima di salvare. Le variabili `AD_SERVER`, `AD_DOMAIN` e `AD_CA_FILE` del file `.env` restano
+  valide finché dalla pagina non si salva nulla.
   L'AD controlla solo la password: chi può entrare e con quale ruolo lo decide il Responsabile nella
   pagina **Utenti**. Un utente AD non aggiunto al CRM non entra.
 - **Utenti locali**: il Responsabile può creare anche utenti con una password del CRM (per chi non ha un
@@ -64,8 +73,8 @@ docker save crm-regie-auto-backend crm-regie-auto-proxy postgres:16-alpine | gzi
   con Argon2), creato al primo avvio. Serve quando l'AD non risponde.
 - Sessione in cookie HttpOnly/Secure/SameSite=Strict, durata `JWT_MINUTI` con rinnovo automatico.
   Dopo 5 tentativi falliti l'utente resta bloccato 15 minuti (il Responsabile può sbloccarlo).
-- Ruoli: **Responsabile** (tutto) e **Operatore** (in questa fase vede solo la home; le liste di
-  chiamata arrivano con la fase 2). Ogni API controlla il ruolo lato server.
+- Ruoli: **Responsabile** (tutto) e **Operatore** (le campagne dei suoi team, i contatti assegnati a
+  lui e le sue opportunità). Ogni API controlla il ruolo lato server.
 
 ## Import del file Excel
 
@@ -81,6 +90,24 @@ Pagina **Importa dati** (solo Responsabile), in quattro passi:
 Regole: ogni riga è un veicolo; il cliente si riconosce dal **Cod. Cliente** (le righe dello stesso
 cliente diventano un cliente con più veicoli); il veicolo dal telaio, poi dalla targa; il passaggio
 in officina dal numero O.R. Una cella vuota non cancella un dato già presente.
+
+## Campagne e chiamate
+
+1. **Team**: il Responsabile raggruppa gli operatori in team; una persona può stare in più team.
+2. **Campagne**: sceglie i veicoli con i filtri (marca, sede, date di immatricolazione e di ultimo
+   passaggio, parole negli interventi), vede quanti sono e assegna la campagna a un team. Restano
+   sempre fuori i clienti che non vogliono essere richiamati e, salvo diversa scelta, quelli senza
+   telefono e i veicoli già in un'altra campagna attiva.
+3. **Le mie chiamate**: i contatti stanno in una coda condivisa dal team. Con «Prossimo contatto»
+   l'operatore ne prende uno, che da quel momento è suo: ognuno vede solo i propri. Prima dei
+   contatti nuovi tornano i richiami arrivati a scadenza. Il Responsabile può riassegnarli.
+4. **Esito**: a fine telefonata l'operatore sceglie l'esito, scrive una nota e, se serve, crea
+   l'opportunità. L'esito decide cosa succede al contatto: resta da richiamare, esce dalla lista,
+   oppure esce e il cliente non viene più richiamato da nessuna campagna.
+5. **Opportunità**: appuntamento, sede, ammontare, vendita aggiuntiva e prodotto; ogni cambio di fase
+   resta nello storico e per chiudere come persa serve il motivo.
+
+Esiti, motivi di richiamo, fasi, motivi di perdita e prodotti si modificano dalla pagina **Elenchi**.
 
 ## Sviluppo
 

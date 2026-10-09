@@ -5,7 +5,17 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.dialects.postgresql import insert
 
-from app.api import anagrafica, auth, importazioni, utenti
+from app.api import (
+    anagrafica,
+    auth,
+    campagne,
+    elenchi,
+    importazioni,
+    impostazioni,
+    opportunita,
+    team,
+    utenti,
+)
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import ORIGINE_LOCALE, RUOLO_RESPONSABILE, Utente
@@ -18,6 +28,7 @@ log = logging.getLogger("crm")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     crea_admin_emergenza()
+    elenchi.crea_elenchi_predefiniti()
     yield
 
 
@@ -47,7 +58,10 @@ async def protezione_csrf(request: Request, call_next):
     return response
 
 
-for r in (auth.router, utenti.router, importazioni.router, anagrafica.router):
+for r in (
+    auth.router, utenti.router, importazioni.router, anagrafica.router, impostazioni.router,
+    team.router, elenchi.router, campagne.router, opportunita.router,
+):
     app.include_router(r, prefix="/api")
 
 

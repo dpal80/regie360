@@ -44,6 +44,11 @@ export const post = <T>(percorso: string, dati?: unknown) =>
 export const patch = <T>(percorso: string, dati: unknown) =>
   api<T>(percorso, { method: "PATCH", body: JSON.stringify(dati) });
 
+export const put = <T>(percorso: string, dati: unknown) =>
+  api<T>(percorso, { method: "PUT", body: JSON.stringify(dati) });
+
+export const cancella = <T>(percorso: string) => api<T>(percorso, { method: "DELETE" });
+
 export function query(parametri: Record<string, string | number | undefined | null>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(parametri)) {
@@ -75,3 +80,51 @@ export type Utente = {
 };
 
 export type Pagina<T> = { totale: number; pagina: number; per_pagina: number; elementi: T[] };
+
+export type Voce = {
+  id: number;
+  elenco: string;
+  nome: string;
+  effetto: string | null;
+  famiglia: string | null;
+  attivo: boolean;
+};
+
+export type Campagna = {
+  id: number;
+  nome: string;
+  motivo: string | null;
+  team_id: number;
+  team: string;
+  stato: "attiva" | "chiusa";
+  creato_il: string;
+  totale: number;
+  da_chiamare: number;
+  richiamare: number;
+  chiusi: number;
+  in_coda: number;
+  miei: number;
+};
+
+export type ContattoRiga = {
+  id: number;
+  campagna_id: number;
+  campagna: string;
+  cliente_id: number;
+  cliente: string;
+  telefono: string | null;
+  veicolo: string;
+  targa: string | null;
+  operatore_id: number | null;
+  operatore: string | null;
+  stato: "da_chiamare" | "richiamare" | "chiuso";
+  data_richiamo: string | null;
+  tentativi: number;
+  ultimo_esito: string | null;
+};
+
+export const STATI_CONTATTO: Record<ContattoRiga["stato"], string> = {
+  da_chiamare: "Da chiamare",
+  richiamare: "Da richiamare",
+  chiuso: "Chiuso",
+};
