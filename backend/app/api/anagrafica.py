@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.audit import registra
 from app.db import get_db
 from app.models import Audit, Cliente, PassaggioOfficina, Sede, Utente, Veicolo
-from app.security import solo_responsabile
+from app.security import solo_responsabile, utente_corrente
 
 router = APIRouter(tags=["anagrafica"])
 
@@ -208,7 +208,7 @@ def marche(db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)
 
 
 @router.get("/sedi")
-def sedi(db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)):
+def sedi(db: Session = Depends(get_db), _: Utente = Depends(utente_corrente)):
     return [{"id": s.id, "nome": s.nome} for s in db.scalars(select(Sede).order_by(Sede.nome))]
 
 

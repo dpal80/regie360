@@ -32,13 +32,13 @@ export default function CambioPassword({ obbligatorio = false }: { obbligatorio?
 
   return (
     <form onSubmit={salva} className={`scheda password`}>
-      <h1>{obbligatorio ? "Scegli la tua password" : "Cambia password"}</h1>
+      {obbligatorio ? <h1>Scegli la tua password</h1> : <h3>Cambia password</h3>}
       {obbligatorio && (
         <p className="tenue">È il tuo primo accesso o la password è stata reimpostata: scegline una nuova per continuare.</p>
       )}
       <label>
         Password attuale
-        <input type="password" value={attuale} onChange={(e) => setAttuale(e.target.value)} autoComplete="current-password" required autoFocus />
+        <input type="password" value={attuale} onChange={(e) => setAttuale(e.target.value)} autoComplete="current-password" required autoFocus={obbligatorio} />
       </label>
       <label>
         Nuova password (almeno {MINIMO} caratteri)

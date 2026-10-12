@@ -3,12 +3,25 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 
-from app.api import anagrafica, auth, importazioni, utenti
+from app.api import (
+    anagrafica,
+    auth,
+    campagne,
+    elenchi,
+    importazioni,
+    impostazioni,
+    opportunita,
+    posta,
+    team,
+    telefonia,
+    utenti,
+)
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import ORIGINE_LOCALE, RUOLO_RESPONSABILE, Utente
+from app.models import ORIGINE_LOCALE, RUOLO_ADMIN_GLOBALE, Utente
 from app.security import hash_password, normalizza_username
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +31,7 @@ log = logging.getLogger("crm")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     crea_admin_emergenza()
+    elenchi.crea_elenchi_predefiniti()
     yield
 
 
@@ -47,7 +61,10 @@ async def protezione_csrf(request: Request, call_next):
     return response
 
 
-for r in (auth.router, utenti.router, importazioni.router, anagrafica.router):
+for r in (
+    auth.router, utenti.router, importazioni.router, anagrafica.router, impostazioni.router,
+    team.router, elenchi.router, campagne.router, opportunita.router, telefonia.router, posta.router,
+):
     app.include_router(r, prefix="/api")
 
 
@@ -57,7 +74,10 @@ def salute():
 
 
 def crea_admin_emergenza() -> None:
-    """Crea l'amministratore locale al primo avvio, se è impostata ADMIN_PASSWORD."""
+    """Crea l'amministratore globale al primo avvio, se è impostata ADMIN_PASSWORD.
+
+    È anche l'accesso di emergenza: utente locale, entra anche quando l'Active Directory non risponde.
+    """
     s = get_settings()
     if not s.admin_password:
         return
@@ -68,8 +88,8 @@ def crea_admin_emergenza() -> None:
             insert(Utente)
             .values(
                 username=username,
-                nome="Amministratore di emergenza",
-                ruolo=RUOLO_RESPONSABILE,
+                nome="Amministratore globale",
+                ruolo=RUOLO_ADMIN_GLOBALE,
                 origine=ORIGINE_LOCALE,
                 password_hash=hash_password(s.admin_password),
                 attivo=True,
@@ -78,6 +98,13 @@ def crea_admin_emergenza() -> None:
             .on_conflict_do_nothing(index_elements=["username"])
             .returning(Utente.id)
         ).scalar()
+        # Un amministratore creato prima che esistesse il ruolo di amministratore globale viene promosso.
+        db.execute(
+            update(Utente)
+            .where(Utente.username == username, Utente.origine == ORIGINE_LOCALE,
+                   Utente.ruolo != RUOLO_ADMIN_GLOBALE)
+            .values(ruolo=RUOLO_ADMIN_GLOBALE)
+        )
         db.commit()
     if creato:
         log.info("Creato l'amministratore locale '%s'", username)

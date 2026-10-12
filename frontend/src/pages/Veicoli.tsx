@@ -81,6 +81,7 @@ export default function Veicoli() {
         <label>al<input type="date" value={filtri.ultimo_passaggio_a} onChange={imposta("ultimo_passaggio_a")} /></label>
         <div className="azioni">
           <button type="submit" className="primario">Filtra</button>
+          <Link to={`/campagne/nuova${query(applicati)}`} className="bottone">Crea campagna da questo elenco</Link>
           <button type="button" onClick={() => { setFiltri(FILTRI_VUOTI); setApplicati(FILTRI_VUOTI); setPagina(1); }}>
             Azzera
           </button>

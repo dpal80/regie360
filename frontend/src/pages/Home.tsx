@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, eResponsabile } from "../api";
 import { useAuth } from "../auth";
 
 type Riepilogo = { clienti: number; veicoli: number; passaggi: number };
@@ -8,7 +8,7 @@ type Riepilogo = { clienti: number; veicoli: number; passaggi: number };
 export default function Home() {
   const { utente } = useAuth();
   const [riepilogo, setRiepilogo] = useState<Riepilogo | null>(null);
-  const responsabile = utente?.ruolo === "responsabile";
+  const responsabile = eResponsabile(utente);
 
   useEffect(() => {
     if (responsabile) api<Riepilogo>("/riepilogo").then(setRiepilogo).catch(() => undefined);
@@ -17,6 +17,12 @@ export default function Home() {
   return (
     <>
       <h1>Ciao {utente?.nome}</h1>
+      {utente && !utente.totp_attivo && (
+        <p className="consiglio">
+          Proteggi il tuo accesso: attiva la verifica in due passaggi da <Link to="/account">Il mio account</Link>. È
+          consigliata e richiede un minuto.
+        </p>
+      )}
       {responsabile ? (
         <>
           <div className="tessere">
@@ -37,7 +43,7 @@ export default function Home() {
           )}
         </>
       ) : (
-        <p className="tenue">Le liste di chiamata arriveranno con la prossima versione del CRM.</p>
+        <p>Le campagne dei tuoi team e i contatti da chiamare sono in <Link to="/chiamate">Le mie chiamate</Link>.</p>
       )}
     </>
   );
