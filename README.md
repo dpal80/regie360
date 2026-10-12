@@ -110,11 +110,15 @@ sul server.
 
 ## Campagne e chiamate
 
-1. **Team**: il Responsabile raggruppa gli operatori in team; una persona può stare in più team.
-2. **Campagne**: sceglie i veicoli con i filtri (marca, sede, date di immatricolazione e di ultimo
-   passaggio, parole negli interventi), vede quanti sono e assegna la campagna a un team. Restano
-   sempre fuori i clienti che non vogliono essere richiamati e, salvo diversa scelta, quelli senza
-   telefono e i veicoli già in un'altra campagna attiva.
+1. **Team**: il Responsabile raggruppa gli operatori in team, spostandoli tra l'elenco degli utenti
+   disponibili e quello del team; una persona può stare in più team.
+2. **Campagne**: si parte sempre da un elenco di veicoli filtrato (marca, sede, date di immatricolazione
+   e di ultimo passaggio, parole negli interventi, testo libero), dalla pagina «Nuova campagna» o dalla
+   pagina Veicoli. Dall'elenco che si vede si crea la campagna, assegnandola a un team. Restano sempre
+   fuori i clienti che non vogliono essere richiamati e, salvo diversa scelta, quelli senza telefono e
+   i veicoli già in un'altra campagna aperta. Una campagna creata non si modifica più: si può mettere in
+   pausa e riprendere, chiudere (per sempre) oppure eliminare se è stata creata per errore, cioè finché
+   nessuno ha registrato chiamate.
 3. **Le mie chiamate**: i contatti stanno in una coda condivisa dal team. Con «Prossimo contatto»
    l'operatore ne prende uno, che da quel momento è suo: ognuno vede solo i propri. Prima dei
    contatti nuovi tornano i richiami arrivati a scadenza. Il Responsabile può riassegnarli.

@@ -10,6 +10,7 @@ from app.db import get_db
 from app.models import (
     CAMPAGNA_ATTIVA,
     CAMPAGNA_CHIUSA,
+    CAMPAGNA_IN_PAUSA,
     CONTATTO_CHIUSO,
     CONTATTO_DA_CHIAMARE,
     CONTATTO_RICHIAMARE,
@@ -57,10 +58,16 @@ class CampagnaNuova(BaseModel):
     filtri: Filtri = Filtri()
 
 
-class CampagnaModifica(BaseModel):
-    nome: str | None = Field(default=None, min_length=1, max_length=200)
-    team_id: int | None = None
-    stato: str | None = None
+class CampagnaStato(BaseModel):
+    stato: str
+
+
+# Da ogni stato, dove si può andare. Una campagna chiusa resta chiusa.
+PASSAGGI = {
+    CAMPAGNA_ATTIVA: (CAMPAGNA_IN_PAUSA, CAMPAGNA_CHIUSA),
+    CAMPAGNA_IN_PAUSA: (CAMPAGNA_ATTIVA, CAMPAGNA_CHIUSA),
+    CAMPAGNA_CHIUSA: (),
+}
 
 
 class CampagnaOut(BaseModel):
@@ -138,6 +145,14 @@ def _campagna(db: Session, campagna_id: int, utente: Utente) -> Campagna:
     return campagna
 
 
+def _chiamate(db: Session, campagna_id: int) -> int:
+    return db.scalar(
+        select(func.count(Chiamata.id))
+        .join(Contatto, Chiamata.contatto_id == Contatto.id)
+        .where(Contatto.campagna_id == campagna_id)
+    )
+
+
 def _contatto(db: Session, contatto_id: int, utente: Utente) -> Contatto:
     contatto = db.get(Contatto, contatto_id)
     if contatto is None or not vede_contatto(utente, contatto):
@@ -198,17 +213,26 @@ _CARICA_RIGA = (
 
 
 @router.post("/campagne/anteprima", response_model=Anteprima)
-def anteprima(filtri: Filtri, db: Session = Depends(get_db), _: Utente = Depends(solo_responsabile)):
-    """Quanti veicoli finirebbero nella campagna con questi filtri, prima di crearla."""
+def anteprima(
+    filtri: Filtri,
+    pagina: int = Query(1, ge=1),
+    per_pagina: int = Query(25, ge=1, le=200),
+    db: Session = Depends(get_db),
+    _: Utente = Depends(solo_responsabile),
+):
+    """L'elenco dei veicoli che finirebbero nella campagna con questi filtri: si parte sempre da qui."""
     trovati = veicoli_da_richiamare(filtri).subquery()
     veicoli = db.scalar(select(func.count()).select_from(trovati))
     clienti = db.scalar(select(func.count(func.distinct(trovati.c.cliente_id))))
     esempi = db.scalars(
-        veicoli_da_richiamare(filtri).options(selectinload(Veicolo.cliente)).order_by(Veicolo.id).limit(10)
+        veicoli_da_richiamare(filtri).options(selectinload(Veicolo.cliente))
+        .order_by(Veicolo.data_immatricolazione.desc().nulls_last(), Veicolo.id)
+        .offset((pagina - 1) * per_pagina).limit(per_pagina)
     ).all()
     return Anteprima(veicoli=veicoli, clienti=clienti, esempi=[
         {"targa": v.targa, "veicolo": " ".join(x for x in (v.marca, v.modello) if x),
-         "cliente": v.cliente.nominativo, "data_immatricolazione": v.data_immatricolazione,
+         "cliente": v.cliente.nominativo,
+         "telefono": v.cliente.telefono_cellulare or v.cliente.telefono_fisso, "data_immatricolazione": v.data_immatricolazione,
          "data_ultimo_passaggio": v.data_ultimo_passaggio}
         for v in esempi
     ])
@@ -281,39 +305,51 @@ def dettaglio(campagna_id: int, db: Session = Depends(get_db), io: Utente = Depe
         **_conteggi(db, [campagna], io)[0].model_dump(),
         "operatori": [{"nome": nome, **stati} for nome, stati in operatori.items()],
         "membri": [{"id": i, "nome": n} for i, n in membri],
+        "chiamate": _chiamate(db, campagna.id),
     }
 
 
 @router.patch("/campagne/{campagna_id}", response_model=CampagnaOut)
-def modifica(
+def cambia_stato(
     campagna_id: int,
-    dati: CampagnaModifica,
+    dati: CampagnaStato,
     request: Request,
     db: Session = Depends(get_db),
     io: Utente = Depends(solo_responsabile),
 ):
+    """Una campagna non si modifica: si mette in pausa, si riprende o si chiude (per sempre)."""
     campagna = _campagna(db, campagna_id, io)
-    if dati.nome is not None:
-        campagna.nome = dati.nome.strip()
-    if dati.team_id is not None and dati.team_id != campagna.team_id:
-        _team_attivo(db, dati.team_id)
-        campagna.team_id = dati.team_id
-        # I contatti ancora aperti tornano nella coda, a disposizione del nuovo team.
-        db.execute(
-            update(Contatto)
-            .where(Contatto.campagna_id == campagna.id, Contatto.stato != CONTATTO_CHIUSO)
-            .values(operatore_id=None)
-        )
-    if dati.stato is not None:
-        if dati.stato not in (CAMPAGNA_ATTIVA, CAMPAGNA_CHIUSA):
-            raise HTTPException(422, "Stato non valido")
-        campagna.stato = dati.stato
-        campagna.chiusa_il = datetime.now(UTC) if dati.stato == CAMPAGNA_CHIUSA else None
-    registra(db, "campagna_modificata", utente=io, oggetto=f"campagna:{campagna.id}",
-             dettaglio=dati.model_dump(exclude_unset=True), request=request)
+    if dati.stato not in PASSAGGI[campagna.stato]:
+        if campagna.stato == CAMPAGNA_CHIUSA:
+            raise HTTPException(400, "Una campagna chiusa non si può riaprire")
+        raise HTTPException(422, "Stato non valido")
+    campagna.stato = dati.stato
+    campagna.chiusa_il = datetime.now(UTC) if dati.stato == CAMPAGNA_CHIUSA else None
+    registra(db, "campagna_stato", utente=io, oggetto=f"campagna:{campagna.id}",
+             dettaglio={"stato": dati.stato}, request=request)
     db.commit()
     db.refresh(campagna)
     return _conteggi(db, [campagna], io)[0]
+
+
+@router.delete("/campagne/{campagna_id}", status_code=204)
+def elimina(
+    campagna_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    io: Utente = Depends(solo_responsabile),
+):
+    """Per una campagna creata per errore. Se qualcuno ha già chiamato non si elimina: si chiude."""
+    campagna = _campagna(db, campagna_id, io)
+    chiamate = _chiamate(db, campagna.id)
+    if chiamate:
+        raise HTTPException(
+            409, f"Su questa campagna ci sono già {chiamate} chiamate registrate: non si può eliminare, ma puoi chiuderla."
+        )
+    registra(db, "campagna_eliminata", utente=io, oggetto=f"campagna:{campagna.id}",
+             dettaglio={"nome": campagna.nome}, request=request)
+    db.delete(campagna)
+    db.commit()
 
 
 @router.get("/campagne/{campagna_id}/contatti", response_model=Pagina)
@@ -346,7 +382,7 @@ def prossimo(
     """Dà a chi chiama il prossimo contatto: prima i suoi richiami scaduti, poi uno libero dalla coda del team."""
     campagna = _campagna(db, campagna_id, io)
     if campagna.stato != CAMPAGNA_ATTIVA:
-        raise HTTPException(400, "La campagna è chiusa")
+        raise HTTPException(400, "La campagna non è attiva")
     adesso = datetime.now(UTC)
     mio = db.scalar(
         select(Contatto)
@@ -508,7 +544,7 @@ def registra_chiamata(
     """Registra la telefonata e sposta il contatto secondo l'esito scelto."""
     c = _contatto(db, contatto_id, io)
     if c.campagna.stato != CAMPAGNA_ATTIVA:
-        raise HTTPException(400, "La campagna è chiusa")
+        raise HTTPException(400, "La campagna non è attiva: è in pausa o chiusa")
     esito = db.get(VoceElenco, dati.esito_id)
     if esito is None or esito.elenco != ELENCO_ESITO or not esito.attivo:
         raise HTTPException(422, "Esito non valido")

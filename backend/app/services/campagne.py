@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     CAMPAGNA_ATTIVA,
+    CAMPAGNE_APERTE,
     CONTATTO_CHIUSO,
     Campagna,
     Cliente,
@@ -20,6 +21,8 @@ from app.models import (
 
 
 class Filtri(BaseModel):
+    # Testo libero: targa, telaio, modello o nome del cliente.
+    q: str | None = None
     marca: str | None = None
     sede_id: int | None = None
     immatricolazione_da: date | None = None
@@ -29,7 +32,7 @@ class Filtri(BaseModel):
     # Parole cercate nella descrizione degli interventi (es. TAGLIANDO, TGA): ne basta una.
     parole: list[str] = Field(default=[], max_length=30)
     solo_con_telefono: bool = True
-    # Salta i veicoli che sono già in una campagna attiva e non ancora chiusi.
+    # Salta i veicoli che sono già in una campagna attiva o in pausa e non ancora chiusi.
     escludi_in_campagne_attive: bool = True
 
 
@@ -42,6 +45,10 @@ def veicoli_da_richiamare(f: Filtri) -> Select:
     q = select(Veicolo).join(Cliente, Veicolo.cliente_id == Cliente.id).where(Cliente.escluso_richiami.is_(False))
     if f.solo_con_telefono:
         q = q.where(or_(Cliente.telefono_cellulare.is_not(None), Cliente.telefono_fisso.is_not(None)))
+    if f.q and f.q.strip():
+        testo = _like(f.q.strip())
+        q = q.where(or_(Veicolo.targa.ilike(testo), Veicolo.telaio.ilike(testo), Veicolo.modello.ilike(testo),
+                        Cliente.nominativo.ilike(testo)))
     if f.marca:
         q = q.where(Veicolo.marca == f.marca)
     if f.sede_id:
@@ -71,7 +78,7 @@ def veicoli_da_richiamare(f: Filtri) -> Select:
                 Contatto.veicolo_id == Veicolo.id,
                 Contatto.stato != CONTATTO_CHIUSO,
                 Contatto.campagna_id == Campagna.id,
-                Campagna.stato == CAMPAGNA_ATTIVA,
+                Campagna.stato.in_(CAMPAGNE_APERTE),
             )
         )
     return q

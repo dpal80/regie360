@@ -16,6 +16,7 @@ import Contatto from "./pages/Contatto";
 import Opportunita from "./pages/Opportunita";
 import Campagne from "./pages/Campagne";
 import CampagnaDettaglio from "./pages/CampagnaDettaglio";
+import CampagnaNuova from "./pages/CampagnaNuova";
 import Team from "./pages/Team";
 import Elenchi from "./pages/Elenchi";
 import Impostazioni from "./pages/Impostazioni";
@@ -83,6 +84,7 @@ export default function App() {
           {responsabile && (
             <>
               <Route path="/campagne" element={<Campagne />} />
+              <Route path="/campagne/nuova" element={<CampagnaNuova />} />
               <Route path="/campagne/:id" element={<CampagnaDettaglio />} />
               <Route path="/team" element={<Team />} />
               <Route path="/elenchi" element={<Elenchi />} />

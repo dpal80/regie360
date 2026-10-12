@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { api, formatoDataOra, patch, query, STATI_CONTATTO, type Campagna, type ContattoRiga, type Pagina } from "../api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { api, cancella, formatoDataOra, patch, query, STATI_CAMPAGNA, STATI_CONTATTO, type Campagna, type ContattoRiga, type Pagina } from "../api";
 import Paginatore from "../components/Paginatore";
 
 type Dettaglio = Campagna & {
   operatori: { nome: string; da_chiamare: number; richiamare: number; chiuso: number }[];
   membri: { id: number; nome: string }[];
+  chiamate: number;
 };
 
 export default function CampagnaDettaglio() {
   const { id } = useParams();
+  const naviga = useNavigate();
   const [campagna, setCampagna] = useState<Dettaglio | null>(null);
   const [contatti, setContatti] = useState<Pagina<ContattoRiga> | null>(null);
   const [stato, setStato] = useState("");
@@ -36,19 +38,49 @@ export default function CampagnaDettaglio() {
 
   if (!campagna) return errore ? <div className="errore">{errore}</div> : <p className="tenue">Caricamento…</p>;
   const attiva = campagna.stato === "attiva";
+  const chiusa = campagna.stato === "chiusa";
+
+  function chiudi() {
+    if (confirm(`Chiudere la campagna «${campagna!.nome}»? Non si potrà riaprire.`)) azione(() => patch(`/campagne/${id}`, { stato: "chiusa" }));
+  }
+
+  async function elimina() {
+    if (!confirm(`Eliminare la campagna «${campagna!.nome}» e i suoi ${campagna!.totale} contatti? Serve per le campagne create per errore.`)) return;
+    setErrore("");
+    try {
+      await cancella(`/campagne/${id}`);
+      naviga("/campagne");
+    } catch (e) {
+      setErrore((e as Error).message);
+    }
+  }
 
   return (
     <>
       <Link to="/campagne" className="indietro">‹ Campagne</Link>
       <div className="testata">
         <h1>{campagna.nome}</h1>
-        <button onClick={() => azione(() => patch(`/campagne/${id}`, { stato: attiva ? "chiusa" : "attiva" }))}>
-          {attiva ? "Chiudi campagna" : "Riapri campagna"}
-        </button>
+        <div className="azioni-riga">
+          {!chiusa && (
+            <button onClick={() => azione(() => patch(`/campagne/${id}`, { stato: attiva ? "in_pausa" : "attiva" }))}>
+              {attiva ? "Metti in pausa" : "Riprendi"}
+            </button>
+          )}
+          {!chiusa && <button onClick={chiudi}>Chiudi campagna</button>}
+          <button
+            className="pericolo"
+            disabled={campagna.chiamate > 0}
+            title={campagna.chiamate > 0 ? "Ci sono già chiamate registrate: si può solo chiudere" : "Per una campagna creata per errore"}
+            onClick={elimina}
+          >
+            Elimina
+          </button>
+        </div>
       </div>
       <p className="tenue">
-        {campagna.motivo ? `${campagna.motivo} · ` : ""}Team {campagna.team} · {attiva ? "Attiva" : "Chiusa"}
+        {campagna.motivo ? `${campagna.motivo} · ` : ""}Team {campagna.team} · {STATI_CAMPAGNA[campagna.stato]}
       </p>
+      {campagna.stato === "in_pausa" && <div className="consiglio">Campagna in pausa: gli operatori non la vedono finché non la riprendi.</div>}
       {errore && <div className="errore">{errore}</div>}
       <div className="tessere">
         <div className="tessera"><span>{campagna.totale}</span>contatti</div>
@@ -95,7 +127,7 @@ export default function CampagnaDettaglio() {
               <td>{formatoDataOra(c.data_richiamo)}</td>
               <td className="num">{c.tentativi}</td>
               <td>
-                {c.stato === "chiuso" ? c.operatore : (
+                {c.stato === "chiuso" || chiusa ? c.operatore : (
                   <select
                     value={c.operatore_id ?? ""}
                     onChange={(e) => azione(() => patch(`/contatti/${c.id}`, { operatore_id: e.target.value ? Number(e.target.value) : null }))}

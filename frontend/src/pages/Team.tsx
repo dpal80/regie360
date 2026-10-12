@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, cancella, patch, post, RUOLI, type Ruolo } from "../api";
+import DueElenchi from "../components/DueElenchi";
 
 type Persona = { id: number; nome: string; ruolo: Ruolo; attivo: boolean };
 type Team = { id: number; nome: string; attivo: boolean; membri: Persona[]; campagne: number };
@@ -11,7 +12,6 @@ export default function TeamPagina() {
   const [team, setTeam] = useState<Team[]>([]);
   const [persone, setPersone] = useState<Persona[]>([]);
   const [modulo, setModulo] = useState<Modulo | null>(null);
-  const [cerca, setCerca] = useState("");
   const [errore, setErrore] = useState("");
   const [avviso, setAvviso] = useState("");
 
@@ -38,7 +38,6 @@ export default function TeamPagina() {
   function apri(t: Team | null) {
     setErrore("");
     setAvviso("");
-    setCerca("");
     setModulo(t ? { id: t.id, nome: t.nome, membri: t.membri.map((m) => m.id) } : { id: null, nome: "", membri: [] });
   }
 
@@ -57,13 +56,6 @@ export default function TeamPagina() {
     if (!confirm(`Eliminare il team «${t.nome}»? Gli utenti restano nel CRM.`)) return;
     azione(() => cancella(`/team/${t.id}`), `Team «${t.nome}» eliminato.`);
   }
-
-  function spunta(id: number, dentro: boolean) {
-    if (!modulo) return;
-    setModulo({ ...modulo, membri: dentro ? [...modulo.membri, id] : modulo.membri.filter((m) => m !== id) });
-  }
-
-  const visibili = persone.filter((p) => p.nome.toLowerCase().includes(cerca.trim().toLowerCase()));
 
   return (
     <>
@@ -87,19 +79,14 @@ export default function TeamPagina() {
               <input required autoFocus value={modulo.nome} onChange={(e) => setModulo({ ...modulo, nome: e.target.value })} placeholder="Officina Viterbo" />
             </label>
           </div>
-          <div className="testata">
-            <strong>Chi ne fa parte ({modulo.membri.length} {modulo.membri.length === 1 ? "persona" : "persone"})</strong>
-            <input value={cerca} onChange={(e) => setCerca(e.target.value)} placeholder="Cerca per nome" />
-          </div>
-          <div className="elenco-persone">
-            {visibili.map((p) => (
-              <label key={p.id} className="spunta">
-                <input type="checkbox" checked={modulo.membri.includes(p.id)} onChange={(e) => spunta(p.id, e.target.checked)} />
-                {p.nome} {p.ruolo !== "operatore" && <small className="tenue">({RUOLI[p.ruolo]})</small>}
-              </label>
-            ))}
-            {visibili.length === 0 && <span className="tenue">Nessuna persona con questo nome</span>}
-          </div>
+          <DueElenchi
+            voci={persone.map((p) => ({ id: p.id, nome: p.nome, nota: p.ruolo !== "operatore" ? RUOLI[p.ruolo] : undefined }))}
+            scelti={modulo.membri}
+            onCambia={(membri) => setModulo({ ...modulo, membri })}
+            titoloDisponibili="Utenti disponibili"
+            titoloScelti="Nel team"
+          />
+          <p className="tenue">Clicca i nomi per selezionarli e usa le frecce; con il doppio clic un nome passa subito dall'altra parte.</p>
           <div className="azioni">
             <button type="button" onClick={() => setModulo(null)}>Annulla</button>
             <button type="submit" className="primario">{modulo.id === null ? "Crea team" : "Salva"}</button>

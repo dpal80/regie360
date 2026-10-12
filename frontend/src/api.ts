@@ -109,13 +109,17 @@ export type Voce = {
   attivo: boolean;
 };
 
+export type StatoCampagna = "attiva" | "in_pausa" | "chiusa";
+
+export const STATI_CAMPAGNA: Record<StatoCampagna, string> = { attiva: "Attiva", in_pausa: "In pausa", chiusa: "Chiusa" };
+
 export type Campagna = {
   id: number;
   nome: string;
   motivo: string | null;
   team_id: number;
   team: string;
-  stato: "attiva" | "chiusa";
+  stato: StatoCampagna;
   creato_il: string;
   totale: number;
   da_chiamare: number;

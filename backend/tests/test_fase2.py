@@ -237,3 +237,54 @@ def test_team_si_elimina_solo_senza_campagne(admin, campagna):
     assert [t["nome"] for t in admin.get("/api/team").json()] == ["Viterbo"]
     # l'utente che era nel team eliminato resta al suo posto
     assert admin.patch(f"/api/utenti/{op}", json={"interno": "300"}).status_code == 200
+
+
+def test_campagna_attiva_non_si_modifica(admin, campagna):
+    cid = campagna["id"]
+    # nome, team e filtri non si toccano più: l'unica cosa che cambia è lo stato
+    assert admin.patch(f"/api/campagne/{cid}", json={"nome": "Altro nome"}).status_code == 422
+    altro = admin.post("/api/team", json={"nome": "Altro"}).json()
+    assert admin.patch(f"/api/campagne/{cid}", json={"team_id": altro["id"]}).status_code == 422
+    assert admin.get("/api/campagne").json()[0]["nome"] == "Tagliandi"
+
+    with entra("op1") as op:
+        contatto = op.post(f"/api/campagne/{cid}/prossimo").json()["contatto_id"]
+        assert admin.patch(f"/api/campagne/{cid}", json={"stato": "in_pausa"}).json()["stato"] == "in_pausa"
+        # in pausa: gli operatori non la vedono e non chiamano, ma i veicoli restano impegnati
+        assert op.get("/api/campagne").json() == [] and op.get("/api/contatti/miei").json() == []
+        assert op.post(f"/api/contatti/{contatto}/chiamate", json={"esito_id": esito(op, "Non risponde")}).status_code == 400
+        assert admin.post("/api/campagne/anteprima", json={}).json()["veicoli"] == 0
+        assert admin.patch(f"/api/campagne/{cid}", json={"stato": "attiva"}).json()["stato"] == "attiva"
+        assert op.post(f"/api/contatti/{contatto}/chiamate", json={"esito_id": esito(op, "Non risponde")}).status_code == 201
+
+    assert admin.patch(f"/api/campagne/{cid}", json={"stato": "chiusa"}).json()["stato"] == "chiusa"
+    # chiusa è per sempre
+    for stato in ("attiva", "in_pausa"):
+        assert admin.patch(f"/api/campagne/{cid}", json={"stato": stato}).status_code == 400
+
+
+def test_campagna_creata_per_errore_si_elimina(admin, campagna):
+    cid = campagna["id"]
+    with entra("op1") as op:
+        assert op.delete(f"/api/campagne/{cid}").status_code == 403
+    assert admin.get(f"/api/campagne/{cid}").json()["chiamate"] == 0
+    assert admin.delete(f"/api/campagne/{cid}").status_code == 204
+    assert admin.get("/api/campagne").json() == []
+    # i veicoli tornano disponibili per una nuova campagna
+    assert admin.post("/api/campagne/anteprima", json={}).json()["veicoli"] == 3
+
+    team = admin.get("/api/team").json()[0]["id"]
+    nuova = admin.post("/api/campagne", json={"nome": "Giusta", "team_id": team, "filtri": {"q": "cliente 2"}}).json()
+    assert nuova["totale"] == 1
+    with entra("op1") as op:
+        contatto = op.post(f"/api/campagne/{nuova['id']}/prossimo").json()["contatto_id"]
+        op.post(f"/api/contatti/{contatto}/chiamate", json={"esito_id": esito(op, "Non risponde")})
+    # con una chiamata già registrata non si elimina più
+    assert admin.delete(f"/api/campagne/{nuova['id']}").status_code == 409
+
+
+def test_elenco_veicoli_per_la_campagna_e_paginato(admin):
+    for n in range(1, 8):
+        crea_veicolo(n)
+    r = admin.post("/api/campagne/anteprima?per_pagina=3&pagina=3", json={}).json()
+    assert r["veicoli"] == 7 and len(r["esempi"]) == 1 and r["esempi"][0]["telefono"] == "3330000000"

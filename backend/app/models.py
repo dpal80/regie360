@@ -282,8 +282,11 @@ class VoceElenco(Base):
     attivo: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+# Una campagna nasce attiva e non si modifica più: si può solo mettere in pausa, riprendere o chiudere.
 CAMPAGNA_ATTIVA = "attiva"
-CAMPAGNA_CHIUSA = "chiusa"
+CAMPAGNA_IN_PAUSA = "in_pausa"
+CAMPAGNA_CHIUSA = "chiusa"  # definitiva
+CAMPAGNE_APERTE = (CAMPAGNA_ATTIVA, CAMPAGNA_IN_PAUSA)
 
 CONTATTO_DA_CHIAMARE = "da_chiamare"
 CONTATTO_RICHIAMARE = "richiamare"
